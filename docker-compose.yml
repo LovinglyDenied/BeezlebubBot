@@ -2,5 +2,7 @@ version: '3.1'
 
 services:
   discordbot:
+    environment:
+      TOKEN: ${TOKEN}
     restart: always
     build: .
