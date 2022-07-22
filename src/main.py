@@ -15,6 +15,7 @@ from discord.commands import slash_command, Option
 from database import connect
 
 extensions = [
+        "cogs.server_management.py"
         ]
 
 
