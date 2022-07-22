@@ -7,7 +7,6 @@ import logging.handlers
 from typing import Optional, List
 
 import discord
-from discord import ExtensionAlreadyLoaded, ExtensionNotLoaded
 from discord import default_permissions
 from discord.ext import commands
 from discord.commands import slash_command, Option
