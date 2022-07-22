@@ -14,7 +14,7 @@ from discord.commands import slash_command, Option
 from database import connect
 
 extensions = [
-        "cogs.server_management.py"
+        "cogs.server_management"
         ]
 
 
@@ -119,6 +119,9 @@ def logger_setup():
     logger.addHandler(handler)
 
 def main():
+    from dotenv import load_dotenv
+    load_dotenv()
+
     logger_setup()
 
     intents = discord.Intents(
@@ -130,14 +133,12 @@ def main():
 
     datastore = os.getenv("DATATOKEN")
 
-    debug_guilds = [997821183057743872, 997992428743176243]
-
     bot =  BeezlebubBot(
             commands.when_mentioned_or('!'), 
             extensions = extensions, 
             intents = intents, 
-            datastore = datastore,
-            debug_guilds = debug_guilds)
+            datastore = datastore
+            )
     bot.run(os.getenv("BOTTOKEN"))
 
 if __name__ == "__main__":
