@@ -1,1 +1,3 @@
-discord.py==1.7.3
+git+https://github.com/Pycord-Development/pycord
+ming==0.12.0 
+
