@@ -72,6 +72,5 @@ class ReactionRoles(commands.Cog):
 
 def setup(bot):
     bot.add_cog(ReactionRoles(bot))
-    print("Role Select")
     logging.info("Cog Role Select loaded")
 
