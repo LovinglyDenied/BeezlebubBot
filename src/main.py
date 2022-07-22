@@ -120,8 +120,8 @@ def logger_setup():
     logger.addHandler(handler)
 
 def main():
-    from dotenv import load_dotenv
-    load_dotenv()
+    # from dotenv import load_dotenv
+    # load_dotenv()
 
     logger_setup()
 
