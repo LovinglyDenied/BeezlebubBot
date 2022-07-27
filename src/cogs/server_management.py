@@ -13,7 +13,6 @@ class ServerManager(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-
     @slash_command(
             name="serversettings", 
             description="set the general settings for your server")
@@ -33,7 +32,7 @@ class ServerManager(commands.Cog):
             value: Option(bool)
             ):
         ServerSettings.change_setting(ctx.guild.id, setting, value)
-        await ctx.respond(f"changed `{setting}` to `{value}`")
+        await ctx.respond(f"changed `{setting}` to `{value}`", ephemeral=True)
 
     @slash_command(
             name="welocomeettings", 
@@ -60,7 +59,7 @@ class ServerManager(commands.Cog):
             value: Option(str)
             ):
         ServerSettings.change_setting(ctx.guild.id, setting, value, group = "welcome")
-        await ctx.respond(f"changed `welcome.{setting}` to `{value}`")
+        await ctx.respond(f"changed `welcome.{setting}` to `{value}`", ephemeral=True)
 
     @slash_command(
             name="get_settings", 
@@ -70,7 +69,7 @@ class ServerManager(commands.Cog):
     async def get_settings(self,
             ctx: discord.ApplicationContext
             ):
-        await ctx.respond(ServerSettings.get_settings(ctx.guild.id))
+        await ctx.respond(ServerSettings.get_settings(ctx.guild.id), ephemeral=True)
 
     @staticmethod
     def create_welcome_embed(
@@ -152,7 +151,11 @@ class ServerManager(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild:discord.Guild):
-        ServerSettings.enter_server(guild.id, guild.system_channel.id)
+        ServerSettings.enter_server(
+                guild.id, 
+                channel_id = guild.system_channel.id, 
+                welcome_message = f"Welcome to {guild.name}!"
+                )
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild:discord.Guild):
