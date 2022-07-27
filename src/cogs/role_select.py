@@ -28,7 +28,7 @@ class ReactionRoles(commands.Cog):
             channel: Option(str)
             ):
         ServerSettings.change_setting(ctx.guild.id, "role_channel", channel)
-        await ctx.respond(f"The role channel has been changed to {channel}")
+        await ctx.respond(f"The role channel has been changed to {channel}", ephemeral=True)
 
 
     async def add_role_from_payload(self, payload: RawReactionActionEvent, role: discord.Role):
@@ -54,8 +54,6 @@ class ReactionRoles(commands.Cog):
             role_name:str = self.special_roles[payload.emoji.name]
         except KeyError:
             role_name:str = payload.emoji.name
-
-        print(role_name)
 
         guild: discord.Guild = discord.utils.get(self.bot.guilds, id = payload.guild_id)
         role: discord.Role = discord.utils.get(guild.roles, name = role_name)
