@@ -15,7 +15,7 @@ class ServerSettings(MappedClass):
         unique_indexes = [('server_id',)]
 
     _id = FieldProperty(s.ObjectId)
-    server_id = FieldProperty(s.Int)
+    server_id = FieldProperty(s.Int(required=True))
 
     save_settings_on_leave = FieldProperty(s.Bool(
             if_missing = False))
@@ -70,7 +70,9 @@ class ServerSettings(MappedClass):
                 ])
 
     @classmethod
-    def enter_server(cls, server_id:int, *, 
+    def enter_server(cls,
+            server_id:int, 
+            *, 
             channel_id:int = 0, 
             welcome_message:str = "Welcome to the server!"
             ):
@@ -92,7 +94,13 @@ class ServerSettings(MappedClass):
         })
 
     @classmethod
-    def change_setting(cls, server_id:int, setting:str, value:Any, *, group:Optional[str] = None):
+    def change_setting(cls, 
+            server_id:int, 
+            setting:str, 
+            value:Any, 
+            *, 
+            group:Optional[str] = None
+            ):
         data = cls.query.find({"server_id": server_id})
         if not data.count(): cls.enter_server(server_id)
 
@@ -102,11 +110,5 @@ class ServerSettings(MappedClass):
         else:
             settings[setting] = value
         database_session.flush()
-
-    #TODO make this not just dump the database entry
-    @classmethod
-    def get_settings(cls, server_id:int):
-        return str(cls.query.find({"server_id": server_id}).first())
-
 
 Mapper.compile_all()

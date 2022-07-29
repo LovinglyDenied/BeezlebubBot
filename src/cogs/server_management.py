@@ -2,14 +2,14 @@ import asyncio
 import logging
 
 import discord
-from discord import guild_only
-from discord import default_permissions
+from discord import guild_only, default_permissions
 from discord.ext import commands
 from discord.commands import slash_command, Option
 
+from utils import BaseCog
 from database.server import ServerSettings
 
-class ServerManager(commands.Cog):
+class ServerManager(BaseCog):
     def __init__(self, bot):
         self.bot = bot
 
@@ -69,7 +69,10 @@ class ServerManager(commands.Cog):
     async def get_settings(self,
             ctx: discord.ApplicationContext
             ):
-        await ctx.respond(ServerSettings.get_settings(ctx.guild.id), ephemeral=True)
+        await ctx.respond(
+            str(ServerSettings.query.find({"server_id": ctx.guild.id}).first()), 
+            ephemeral=True
+            )
 
     @staticmethod
     def create_welcome_embed(
@@ -105,18 +108,18 @@ class ServerManager(commands.Cog):
             guide_message:str,
             ) -> discord.ui.View:
 
-        rules_button = discord.ui.Button(
+        rules_button: discord.ui.Button = discord.ui.Button(
                 label = rules_message,
                 style = discord.ButtonStyle.link,
                 url   = rules_link
                 )
 
-        roles_button = discord.ui.Button(
+        roles_button: discord.ui.Button = discord.ui.Button(
                 label = roles_message,
                 style = discord.ButtonStyle.link,
                 url   = roles_link
                 )
-        guide_button = discord.ui.Button(
+        guide_button: discord.ui.Button = discord.ui.Button(
                 label = guide_message,
                 style = discord.ButtonStyle.link,
                 url   = guide_link
