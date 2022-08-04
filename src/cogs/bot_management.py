@@ -5,9 +5,9 @@ import discord
 from discord.ext import commands
 from discord.commands import slash_command, Option
 
-from cogs import extensions
-from utils import BaseCog
 from database.player import Player
+from cogs import extensions
+from .base import BaseCog
 
 class BotManager(BaseCog):
     def __init__(self, bot):

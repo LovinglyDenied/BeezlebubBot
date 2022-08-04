@@ -7,6 +7,12 @@ from discord.ext import commands
 from database.player import Player
 
 class BaseCog(commands.Cog):
+    """The base cog all other cogs should inherit from
+    Features:
+    - Error handeling last resort (replies with the error if something goes wrong)
+    - Registering the player or updating their last_active when a slash command is used"""
+    # TODO: Write a function that allows the lookup of ids from mention, returning a proper error if faulty
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -24,4 +30,3 @@ class BaseCog(commands.Cog):
             ctx: discord.ApplicationContext 
             ):
         Player.update(ctx.user.id)
-

@@ -4,10 +4,12 @@ import logging
 import logging.handlers
 
 from typing import List
+from datetime import timedelta
 
 import discord
 from discord.ext import commands
 
+from utils import scheduler_setup
 from database import connect
 from cogs import extensions
 
@@ -18,11 +20,17 @@ class BeezlebubBot(commands.Bot):
         *args,
         extensions: List[str],
         datastore: str,
+        date_format: str,
+        derlict_time: timedelta,
+        user_delete_time: timedelta,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.init_extensions = extensions
         self.datastore = datastore
+        self.date_format = date_format
+        self.derict_time = derlict_time
+        self.user_delete_time = user_delete_time
 
         self.setup_hook()
 
@@ -30,10 +38,9 @@ class BeezlebubBot(commands.Bot):
         logging.info("=== Starting ===")
 
         # Establish database connection
-        connect.initialise(self.datastore)
+        self.database_manager = connect.DBManager(uri = self.datastore)
         
-        # Set up scheduler (Can only be imported after databse connection is set up)
-        from utils import scheduler_setup
+        # Set up scheduler
         scheduler_setup()
 
         # Load bot management first, and without posibility of unload
@@ -76,12 +83,19 @@ def main():
     )
 
     datastore = os.getenv("DATATOKEN")
+    
+    date_format = "%d %b %Y"
+    derlict_time = timedelta(days=10)
+    user_delete_time = timedelta(days=93)
 
     bot = BeezlebubBot(
         commands.when_mentioned_or('!'),
         extensions = extensions,
         intents = intents,
-        datastore = datastore
+        datastore = datastore,
+        date_format = date_format,
+        derlict_time = derlict_time,
+        user_delete_time = user_delete_time
     )
     bot.run(os.getenv("BOTTOKEN"))
 

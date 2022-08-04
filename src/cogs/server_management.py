@@ -6,8 +6,8 @@ from discord import guild_only, default_permissions
 from discord.ext import commands
 from discord.commands import slash_command, Option
 
-from utils import BaseCog
 from database.server import ServerSettings
+from .base import BaseCog
 
 class ServerManager(BaseCog):
     def __init__(self, bot):
@@ -88,8 +88,8 @@ class ServerManager(BaseCog):
             colour      = 0xA343CB
         )
         embed.add_field(
-                name    = '**Joined Discord : **', 
-                value   = f'``'+member_join+f'``', 
+                name    = "**Joined Discord: **", 
+                value   = member_join, 
                 inline  = False
         )
         embed.set_thumbnail(url=member_avatar)
@@ -137,7 +137,7 @@ class ServerManager(BaseCog):
             channel = member.guild.get_channel(settings.welcome.welcome_channel)
             embed: discord.Embed  = self.create_welcome_embed(
                     title         = settings.welcome.welcome_message,
-                    member_join   = member.created_at.strftime("%b %d, %Y"),
+                    member_join   = member.created_at.strftime(self.bot.date_format),
                     member_avatar = str(member.display_avatar),
                     member_name   = str(member.mention)
                     )

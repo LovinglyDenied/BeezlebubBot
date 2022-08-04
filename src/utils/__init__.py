@@ -1,9 +1,7 @@
-from .cog import *
-from .scheduler import *
+from .scheduler import scheduler_setup, sched
+from .helpers import mention_to_id, classproperty
 
 __all__ = [
-        "BaseCog",
-        "scheduler_setup",
-        "sched"
+        "scheduler_setup", "sched",
+        "mention_to_id", "classproperty"
         ]
-

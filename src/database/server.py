@@ -3,15 +3,16 @@ from typing import Any, Optional
 from ming import schema as s
 from ming.odm import FieldProperty
 from ming.odm.declarative import MappedClass
-
 from ming.odm import Mapper
 
-from .connect import database_session
+from utils import classproperty
+
+from .connect import DBManager
 
 class ServerSettings(MappedClass):
     class __mongometa__:
-        session = database_session
         name = "server_settings"
+        session = DBManager.add_session(name)
         unique_indexes = [('server_id',)]
 
     _id = FieldProperty(s.ObjectId)
@@ -22,7 +23,7 @@ class ServerSettings(MappedClass):
 
     run_welcome_message = FieldProperty(s.Bool(
             if_missing = True))
-    
+
     role_channel = FieldProperty(s.String)
 
     #Making sure to give every setting a plausable value
@@ -44,6 +45,10 @@ class ServerSettings(MappedClass):
         "guide_message": s.String(
             if_missing = "Bot command guide")
         }))
+
+    @classproperty
+    def name(cls):
+        return cls.__mongometa__.name
 
     def __str__(self):
         main = "\n".join([
@@ -84,7 +89,7 @@ class ServerSettings(MappedClass):
                     "welcome_message": welcome_message
                     }
                 )
-            database_session.flush()
+            DBManager.sessions[cls.name].flush()
     
     @classmethod
     def leave_server(cls, server_id:int):
@@ -109,6 +114,6 @@ class ServerSettings(MappedClass):
             settings[group][setting] = value
         else:
             settings[setting] = value
-        database_session.flush()
+        DBManager.sessions[cls.name].flush()
 
 Mapper.compile_all()

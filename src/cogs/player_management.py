@@ -6,8 +6,9 @@ from discord.ext import commands
 from discord.commands import slash_command
 
 
-from utils import BaseCog, sched
+from utils import sched
 from database.player import Player, PlayerAlreadyRegisterd, PlayerNotRegisterd
+from .base import BaseCog
 
 class PlayerManager(BaseCog):
     def __init__(self, bot):
@@ -65,7 +66,7 @@ class PlayerManager(BaseCog):
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member):
         if member.bot: return
-        Player.leave(member.id)
+        Player.leave(member.id, delete_time=self.bot.user_delete_time)
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild:discord.Guild):
@@ -77,15 +78,7 @@ class PlayerManager(BaseCog):
     async def on_guild_remove(self, guild:discord.Guild):
         for member in guild.members:
             if member.bot: continue 
-            Player.leave(member.id)
-
-    def update_database(self):
-        logging.info("Starting database update")
-        user_ids = []
-        for guild in self.bot.guilds:
-            user_ids += [member.id for member in guild.members]
-        Player.update_database(user_ids)
-        logging.info("Database update completed")
+            Player.leave(member.id, delete_time=self.bot.user_delete_time)
 
     @slash_command(
             name="update_data", 
@@ -93,14 +86,16 @@ class PlayerManager(BaseCog):
     async def update_data(self,
             ctx: discord.ApplicationContext
             ):
-        self.update_database()
+        from database.player import database_updater
+        database_updater()
         await ctx.respond(f"Updated database", ephemeral=True)
 
     @commands.Cog.listener()
     async def on_ready(self):
+        Player.init_updater(bot = self.bot)
         sched.add_job(
-                self.update_database, 
-                "interval", days=1, 
+                "database:player.database_updater", 
+                "cron", hour=2, 
                 id = "update_database",
                 replace_existing=True
                 )

@@ -4,4 +4,3 @@ extensions = [
         "cogs.player_management",
         "cogs.profiles"
     ]
-

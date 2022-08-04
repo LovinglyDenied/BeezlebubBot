@@ -6,8 +6,8 @@ from discord import guild_only, default_permissions, RawReactionActionEvent
 from discord.ext import commands
 from discord.commands import slash_command, Option
 
-from utils import BaseCog
 from database.server import ServerSettings
+from .base import BaseCog
 
 class ReactionRoles(BaseCog):
     def __init__(self, bot):
