@@ -12,18 +12,16 @@ from utils import classproperty
 from .connect import DBManager
 from .tasks import TaskTags, Tasks
 
-delete_time = timedelta(days=90)
-
 class PlayerAlreadyRegisterd(Exception):
     pass
 class PlayerNotRegisterd(Exception):
     pass
 
 class RefCountUpdater:
+    """Callable used for the scheduler to be able to access the reference count updater."""
     def __init__(self, *, bot = None):
         self.bot = bot
     def __call__(self):
-        print("Hello")
         user_ids = []
         for guild in self.bot.guilds:
             user_ids += [member.id for member in guild.members]
@@ -92,22 +90,20 @@ class Player(MappedClass):
 
     @classmethod
     def get_user(cls, discord_id:int, *, as_user:Optional[int] = None):
-        data = cls.query.find({"discord_id": discord_id})
-        if not data.count(): raise PlayerNotRegisterd
-        user =  data.first()
-        if as_user and as_user in user.blocked: raise PlayerNotRegisterd
+        user = cls.query.find({"discord_id": discord_id}).first()
+        if user is None: raise PlayerNotRegisterd
+        if as_user is not None and as_user in user.blocked: raise PlayerNotRegisterd
         return user
 
     @classmethod
     def change_setting(cls, discord_id:int, setting:str, value:Any, *, group:Optional[str] = None):
-        data = cls.query.find({"discord_id": discord_id})
-        if not data.count(): raise PlayerNotRegisterd
+        user = cls.get_user(discord_id)
 
-        user = data.first()
         if group is not None: 
             user[group][setting] = value
         else:
             user[setting] = value
+
         DBManager.sessions[cls.name].flush()
 
     @classmethod
@@ -125,12 +121,12 @@ class Player(MappedClass):
         data = cls.query.find({"discord_id": discord_id})
         if data.count():
             user = data.first()
-            user.last_active = datetime.now(timezone.utc)
+            user.last_active = datetime.utcnow()
         else:
             user = cls(
                     discord_id = discord_id, 
-                    last_active = datetime.now(timezone.utc), 
-                    join_date = datetime.now(timezone.utc)
+                    last_active = datetime.utcnow(), 
+                    join_date = datetime.utcnow()
                     )
             user["controls"] = [user]
         DBManager.sessions[cls.name].flush()
@@ -147,7 +143,7 @@ class Player(MappedClass):
             user = cls(
                     discord_id = discord_id, 
                     last_active = datetime.min, 
-                    join_date = datetime.now(timezone.utc)
+                    join_date = datetime.utcnow()
                     )
             user["controls"] = [user]
         DBManager.sessions[cls.name].flush()
@@ -158,7 +154,7 @@ class Player(MappedClass):
         if data.count():
             user = data.first()
             user.ref_counter -= 1
-            if (user.ref_counter <= 0) and (datetime.now(timezone.utc) - user.last_active > delete_time): 
+            if (user.ref_counter <= 0) and (datetime.utcnow() - user.last_active > delete_time): 
                 user.delete()
             DBManager.sessions[cls.name].flush()
 
@@ -167,26 +163,24 @@ class Player(MappedClass):
         if cls.query.find({"discord_id": discord_id}).count(): raise PlayerAlreadyRegisterd
         user = cls(
                 discord_id = discord_id, 
-                last_active = datetime.now(timezone.utc), 
-                join_date = datetime.now(timezone.utc)
+                last_active = datetime.utcnow(), 
+                join_date = datetime.utcnow()
                 )
         user["controls"] = [user]
         DBManager.sessions[cls.name].flush()
     
     @classmethod
     def unregister(cls, discord_id:int):
-        data = cls.query.find({"discord_id": discord_id}) 
-        if not data.count(): raise PlayerNotRegisterd
-        data.first().delete()
+        user = cls.get_user(discord_id)
+        user.delete()
         DBManager.sessions[cls.name].flush()
 
     @classmethod
     def update_database(cls, user_ids: List[str], *, delete_time: timedelta):
-        print("Hello2")
         users = cls.query.find({}).all()
         for user in users:
             user.ref_counter = user_ids.count(user.discord_id)
-            if (user.ref_counter <= 0) and (datetime.now(timezone.utc) - user.last_active > delete_time): 
+            if (user.ref_counter <= 0) and (datetime.utcnow() - user.last_active > delete_time): 
                 user.delete()
         DBManager.sessions[cls.name].flush()
 
@@ -197,18 +191,12 @@ class Player(MappedClass):
         database_updater = RefCountUpdater(bot = bot)
 
 
-    #TODO make this not just dump the database entry, and/or make it dump more stuff.
-    #This is a seperate entry, to allow people to do /getsettings to confirm their data has been removed.
+    #TODO make this not just dump the database entry, and/or make it dump more stuff, like kink information and the like.
     @classmethod
     def get_settings(cls, discord_id:int):
-        data = cls.query.find({"discord_id": discord_id})
-        if not data.count(): raise PlayerNotRegisterd
-        user = data.first()
-        user.last_active = datetime.now(timezone.utc)
+        user = cls.get_user(discord_id)
+        user.last_active = datetime.utcnow()
         DBManager.sessions[cls.name].flush()
         return user
 
 Mapper.compile_all()
-
-
-

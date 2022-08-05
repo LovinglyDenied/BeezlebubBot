@@ -82,22 +82,14 @@ class Profiles(BaseCog):
                 description = "The user to get the profile from"
                 )
             ):
-        user_id = mention_to_id(player)
-        try:
-            user = Player.get_user(user_id)
-        except PlayerNotRegisterd:
-            await ctx.respond(f"No data found for {player}", ephemeral=True)
-            return
+        user, discord_account = await self.get_user(player, ctx) or (None, None)
+        if user is None or discord_account is None: return
 
-        discord_account = self.bot.get_user(user_id)
-        if discord_account == None:
-            await ctx.respond(f"Could not find the discord account of {player}", ephemeral=True)
-            return
-         
         if user.last_active == datetime.min:
             last_active = None
         else:
             last_active = user.last_active.strftime(self.bot.date_format)
+
         owner = None
 
         embed: discord.Embed = self.create_profile_embed(

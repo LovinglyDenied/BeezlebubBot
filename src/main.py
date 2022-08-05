@@ -29,7 +29,7 @@ class BeezlebubBot(commands.Bot):
         self.init_extensions = extensions
         self.datastore = datastore
         self.date_format = date_format
-        self.derict_time = derlict_time
+        self.derlict_time = derlict_time
         self.user_delete_time = user_delete_time
 
         self.setup_hook()
