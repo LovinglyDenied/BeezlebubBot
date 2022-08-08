@@ -8,7 +8,8 @@ import discord
 from discord.commands import slash_command, Option
 
 from utils import mention_to_id
-from database.player import Player, PlayerNotRegisterd
+from database.user import User
+from models import Player
 from .base import BaseCog
 
 class Profiles(BaseCog):
@@ -28,7 +29,7 @@ class Profiles(BaseCog):
             derlict:bool
             ) -> discord.Embed:
 
-        embed=discord.Embed(
+        embed = discord.Embed(
                 title       = f"**{discord_name}**",
                 colour      = 0xA343CB
                 )
@@ -82,26 +83,19 @@ class Profiles(BaseCog):
                 description = "The user to get the profile from"
                 )
             ):
-        user, discord_account = await self.get_user(player, ctx) or (None, None)
-        if user is None or discord_account is None: return
-
-        if user.last_active == datetime.min:
-            last_active = None
-        else:
-            last_active = user.last_active.strftime(self.bot.date_format)
-
-        owner = None
+        player: Player = await Player.from_mention(player, get_discord=True, get_db=True, ctx = ctx)
+        owner: str =  await player.mention_owner()
 
         embed: discord.Embed = self.create_profile_embed(
-                discord_name = discord_account.name,
-                join_date = user.join_date.strftime(self.bot.date_format),
-                last_active = last_active,
-                chaster_name = user.chaster_name,
+                discord_name = player.discord.name,
+                join_date = player.join_date_str,
+                last_active = player.last_active_str,
+                chaster_name = player.db.chaster_name,
                 owner = owner,
-                kinks_message = user.kinks_message,
-                limits_message = user.limits_message,
-                avatar = str(discord_account.display_avatar),
-                derlict = (datetime.utcnow() - user.last_active > self.bot.derlict_time)
+                kinks_message = player.db.kinks_message,
+                limits_message = player.db.limits_message,
+                avatar = str(player.discord.display_avatar),
+                derlict = player.derlict
                 )
         await ctx.respond(embed = embed)
 
@@ -116,12 +110,12 @@ class Profiles(BaseCog):
                 description = "the user to block"
                 )
             ):
-        user_id = mention_to_id(player)
+        player: Player = await Player.from_mention(player, ctx = ctx)
         try:
-            Player.block(ctx.user.id, user_id)
-            await ctx.respond(f"Blocked {player}", ephemeral=True)
-        except KeyError:
-            await ctx.respond(f"{player} was already blocked", ephemeral=True)
+            User.block(ctx.user.id, player.discord.id)
+            await ctx.respond(f"Blocked {player.discord.mention}", ephemeral=True)
+        except ValueError:
+            await ctx.respond(f"{player.discord.mention} was already blocked", ephemeral=True)
 
     @slash_command(
             name="unblock",
@@ -134,12 +128,12 @@ class Profiles(BaseCog):
                 description = "the user to unblock"
                 )
             ):
-        user_id = mention_to_id(player)
+        player: Player = await Player.from_mention(player, ctx = ctx)
         try:
-            Player.block(ctx.user.id, user_id, unblock = True)
-            await ctx.respond(f"Unblocked {player}", ephemeral=True)
+            User.block(ctx.user.id, player.discord.id, unblock = True)
+            await ctx.respond(f"Unblocked {player.discord.mention}", ephemeral=True)
         except ValueError:
-            await ctx.respond(f"{player} was never blocked", ephemeral=True)
+            await ctx.respond(f"{player.discord.mention} was never blocked", ephemeral=True)
 
     def cog_unload(self):
         logging.info("Cog Relations unloaded")

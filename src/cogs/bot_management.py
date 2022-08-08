@@ -5,7 +5,7 @@ import discord
 from discord.ext import commands
 from discord.commands import slash_command, Option
 
-from database.player import Player
+from database.user import User
 from cogs import extensions
 from .base import BaseCog
 

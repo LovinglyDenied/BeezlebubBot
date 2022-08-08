@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Any, List, Optional
 from datetime import datetime, timedelta, timezone
 
@@ -6,15 +8,16 @@ from ming.odm import FieldProperty
 from ming.odm.property import ForeignIdProperty, RelationProperty
 from ming.odm.declarative import MappedClass
 from ming.odm import Mapper
+from bson.objectid import ObjectId
 
 from utils import classproperty
 
 from .connect import DBManager
 from .tasks import TaskTags, Tasks
 
-class PlayerAlreadyRegisterd(Exception):
+class UserAlreadyRegisterd(Exception):
     pass
-class PlayerNotRegisterd(Exception):
+class UserNotRegisterd(Exception):
     pass
 
 class RefCountUpdater:
@@ -25,11 +28,11 @@ class RefCountUpdater:
         user_ids = []
         for guild in self.bot.guilds:
             user_ids += [member.id for member in guild.members]
-        Player.update_database(user_ids, delete_time=self.bot.user_delete_time)
+        User.update_database(user_ids, delete_time=self.bot.user_delete_time)
 
-class PlayerKinks(MappedClass):
+class UserKinks(MappedClass):
     class __mongometa__:
-        name = "player_kinks"
+        name = "user_kinks"
         session = DBManager.add_session(name) 
     
     _id = FieldProperty(s.ObjectId)
@@ -43,9 +46,9 @@ class PlayerKinks(MappedClass):
     def name(cls):
         return cls.__mongometa__.name
 
-class Player(MappedClass):
+class User(MappedClass):
     class __mongometa__:
-        name = "player"
+        name = "user"
         session = DBManager.add_session(name)
         unique_indexes = [('discord_id',)]
 
@@ -65,7 +68,7 @@ class Player(MappedClass):
 
     kinks_message = FieldProperty(s.String(
             if_missing = "This user has not jet set their kinks message"))
-    kinks = ForeignIdProperty("PlayerKinks", uselist = True)
+    kinks = ForeignIdProperty("UserKinks", uselist = True)
     main_kinks = FieldProperty(s.Array(s.String))
 
     special_statuses = FieldProperty(s.Object({
@@ -76,9 +79,9 @@ class Player(MappedClass):
         "swear" : s.Bool(if_missing = False)
     }))
 
-    _controls = ForeignIdProperty("Player", uselist=True)
-    controls = RelationProperty("Player", via=("_controls", True))
-    controlled_by = RelationProperty("Player", via=("_controls", False))
+    _controls = ForeignIdProperty("User", uselist=True)
+    controls = RelationProperty("User", via=("_controls", True))
+    controlled_by = RelationProperty("User", via=("_controls", False))
     trusts = FieldProperty(s.Bool(if_missing = False))
 
     # To keep players who deleted/refreshed data blocked, discord_id is used instaead of _id. 
@@ -89,15 +92,30 @@ class Player(MappedClass):
         return cls.__mongometa__.name
 
     @classmethod
-    def get_user(cls, discord_id:int, *, as_user:Optional[int] = None):
-        user = cls.query.find({"discord_id": discord_id}).first()
-        if user is None: raise PlayerNotRegisterd
-        if as_user is not None and as_user in user.blocked: raise PlayerNotRegisterd
+    def get_user(
+        cls, 
+        *, 
+        discord_id: Optional[int] = None, 
+        db_id: Optional[str] = None, 
+        as_user:Optional[int] = None
+        ) -> User:
+        """Returns the document of the asociated user.
+        Raises ValueError if neither discord_id nor db_id is provided"""
+        if db_id is not None:
+            user = cls.query.get(_id=ObjectId(db_id))
+        elif discord_id is not None:
+            user = cls.query.find({"discord_id": discord_id}).first()
+        else:
+            raise ValueError("Cannot get document without either a Discord ID or a Database ID")
+
+        if user is None: raise UserNotRegisterd
+        if as_user is not None and as_user in user.blocked: raise UserNotRegisterd
+
         return user
 
     @classmethod
     def change_setting(cls, discord_id:int, setting:str, value:Any, *, group:Optional[str] = None):
-        user = cls.get_user(discord_id)
+        user = cls.get_user(discord_id = discord_id)
 
         if group is not None: 
             user[group][setting] = value
@@ -107,13 +125,13 @@ class Player(MappedClass):
         DBManager.sessions[cls.name].flush()
 
     @classmethod
-    def block(cls, blocker:int, to_block:int, *, unblock = False):
-        user = cls.get_user(blocker) 
+    def block(cls, blocker_id:int, to_block_id:int, *, unblock = False):
+        user = cls.get_user(discord_id = blocker_id) 
         if unblock:
-            user.blocked.remove(to_block)
+            user.blocked.remove(to_block_id)
         else:
-            if to_block in user.blocked: raise KeyError
-            user.blocked.append(to_block)
+            if to_block_id in user.blocked: raise ValueError
+            user.blocked.append(to_block_id)
         DBManager.sessions[cls.name].flush()
 
     @classmethod
@@ -160,7 +178,7 @@ class Player(MappedClass):
 
     @classmethod
     def register(cls, discord_id:int):
-        if cls.query.find({"discord_id": discord_id}).count(): raise PlayerAlreadyRegisterd
+        if cls.query.find({"discord_id": discord_id}).count(): raise UserAlreadyRegisterd
         user = cls(
                 discord_id = discord_id, 
                 last_active = datetime.utcnow(), 
@@ -171,7 +189,7 @@ class Player(MappedClass):
     
     @classmethod
     def unregister(cls, discord_id:int):
-        user = cls.get_user(discord_id)
+        user = cls.get_user(discord_id = discord_id)
         user.delete()
         DBManager.sessions[cls.name].flush()
 
@@ -193,10 +211,10 @@ class Player(MappedClass):
 
     #TODO make this not just dump the database entry, and/or make it dump more stuff, like kink information and the like.
     @classmethod
-    def get_settings(cls, discord_id:int):
-        user = cls.get_user(discord_id)
+    def get_settings(cls, discord_id:int) -> str:
+        user = cls.get_user(discord_id = discord_id)
         user.last_active = datetime.utcnow()
         DBManager.sessions[cls.name].flush()
-        return user
+        return str(user)
 
 Mapper.compile_all()
