@@ -5,7 +5,7 @@ import discord
 from discord.ext import commands
 from discord.commands import slash_command, Option
 
-from database.user import User
+from models import Player
 from cogs import extensions
 from .base import BaseCog
 
@@ -16,6 +16,7 @@ class BotManager(BaseCog):
     @slash_command(
         name="cog",
         description="manage the cogs of the bot")
+    @commands.is_owner()
     async def manage_cogs(self,
         ctx: discord.ApplicationContext,
         action: Option(
@@ -35,6 +36,12 @@ class BotManager(BaseCog):
             choices=extensions + ["all"]
         )
     ):
+        # Redundency
+        player = await Player.from_ctx(ctx)
+        if not await player.is_administrator():
+            await ctx.respond(f"You do not have permission to use this command", ephemeral = True)
+            return
+
         if extension == "all":
             to_update = extensions
         else:

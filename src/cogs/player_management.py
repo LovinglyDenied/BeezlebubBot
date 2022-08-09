@@ -6,7 +6,7 @@ from discord.ext import commands
 from discord.commands import slash_command
 
 
-from utils import sched
+from utils import sched, scheduler_setup
 from database.user import User, UserAlreadyRegisterd, UserNotRegisterd
 from .base import BaseCog
 
@@ -83,6 +83,7 @@ class PlayerManager(BaseCog):
     @slash_command(
             name="update_data", 
             description="does an update of the database")
+    @commands.is_owner()
     async def update_data(self,
             ctx: discord.ApplicationContext
             ):
@@ -91,8 +92,12 @@ class PlayerManager(BaseCog):
         await ctx.respond(f"Updated database", ephemeral=True)
 
     @commands.Cog.listener()
-    async def on_ready(self):
+    async def on_connect(self):
         User.init_updater(bot = self.bot)
+    
+    @commands.Cog.listener()
+    async def on_ready(self):
+        scheduler_setup()
         sched.add_job(
                 "database:user.database_updater", 
                 "cron", hour=2, 

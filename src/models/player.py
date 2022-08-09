@@ -36,7 +36,6 @@ class Player:
     def is_owned_by(self, player: Player) -> bool:
         """Whether the player specified by argument is owned by the player the method is called on
         raises InvalidScope if not run on instances with initialised db"""
-        print(self, player)
         if not hasattr(self, "db") or not hasattr(player, "db"):
             raise InvalidScope
         return any([user._id == player.db._id for user in self.db.controlled_by])
@@ -90,6 +89,12 @@ class Player:
             raise InvalidScope
         return self.db.join_date.strftime(self.ctx.bot.date_format)
 
+    async def is_administrator(self) -> bool:
+        """Whether the user is a bot administrator"""
+        if not hasattr(self, "discord"):
+            raise InvalidScope
+        return await self.ctx.bot.is_owner(self.discord)
+
     @classmethod
     async def from_mention(
         cls,
@@ -103,7 +108,10 @@ class Player:
         try:
             discord_id = mention_to_id(mention_string)
         except ValueError:
-            await ctx.respond(f"{mention_string} is not recognised as a player. Are you sure you used either a mention or a discord user ID?", ephemeral=True)
+            await ctx.respond(
+                f"{mention_string} is not recognised as a player. Are you sure you used either a mention or a discord user ID?", 
+                ephemeral=True
+                )
             raise ManagedCommandError
 
         return await cls._init(discord_id=discord_id, ctx=ctx, **kwargs)
@@ -112,10 +120,10 @@ class Player:
     async def from_db_user(
         cls,
         user: User,
-            *,
-            ctx: discord.ApplicationContext,
-            get_discord: bool = True,
-            get_chaster: bool = False
+        *,
+        ctx: discord.ApplicationContext,
+        get_discord: bool = True,
+        get_chaster: bool = False
     ) -> Player:
 
         instance = Player(ctx=ctx)
@@ -123,6 +131,22 @@ class Player:
 
         if get_discord:
             instance.discord = await instance._get_discord(instance.db.discord_id)
+
+        return instance
+    
+    @classmethod
+    async def from_ctx(
+        cls,
+        ctx: discord.ApplicationContext,
+        *,
+        get_db: bool = False,
+        get_chaster: bool = False
+    ) -> Player:
+        instance = Player(ctx=ctx)
+        instance.discord = ctx.user
+
+        if get_db:
+            instance.db = await instance._get_db(discord_id=ctx.user.id)
 
         return instance
 
@@ -133,7 +157,6 @@ class Player:
         discord_id: Optional[int] = None,
         db_id: Optional[int] = None,
         ctx: discord.ApplicationContext,
-        from_ctx: Optional[bool] = False,
         get_discord: bool = True,
         get_db: bool = False,
         get_chaster: bool = False,
@@ -148,13 +171,6 @@ class Player:
         # Use the discord_id from the database if None provided
         if discord_id is None and get_discord == True:
             get_db = True
-
-        if from_ctx:
-            if discord_id or db_id or get_discord:
-                raise ValueError(
-                    "Too many perameters given Player.discord is always initlaised via ctx, and an ID is not needed.")
-            instance.discord = ctx.user
-            discord_id = instance.discord.id
 
         if get_db == True or as_user is not None:
             instance.db = await instance._get_db(discord_id=discord_id, db_id=db_id, as_user=as_user)

@@ -12,22 +12,21 @@ class BaseCog(commands.Cog):
     Features:
     - Error handeling last resort (replies with the error if something goes wrong)
     - Registering the player or updating their last_active when a slash command is used"""
-    # TODO: Write a function that allows the lookup of ids from mention, returning a proper error if faulty
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-#    async def cog_command_error(self, 
-#            ctx: discord.ApplicationContext, 
-#            error: Exception
-#            ):
-#        if isinstance(error, ManagedCommandError): return
-#
-#        logging.warning(error)
-#        await ctx.respond(
-#                f"An error appeared while processing the command.```{error}```",
-#                ephemeral=True
-#                )
+    async def cog_command_error(self, 
+            ctx: discord.ApplicationContext, 
+            error: Exception
+            ):
+        if isinstance(error, ManagedCommandError): return
+
+        logging.warning(error)
+        await ctx.respond(
+                f"An error appeared while processing the command.```{error}```",
+                ephemeral=True
+                )
 
     async def cog_before_invoke(self, 
             ctx: discord.ApplicationContext 

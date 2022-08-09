@@ -9,7 +9,6 @@ from datetime import timedelta
 import discord
 from discord.ext import commands
 
-from utils import scheduler_setup
 from database import connect
 from cogs import extensions
 
@@ -39,9 +38,6 @@ class BeezlebubBot(commands.Bot):
 
         # Establish database connection
         self.database_manager = connect.DBManager(uri = self.datastore)
-        
-        # Set up scheduler
-        scheduler_setup()
 
         # Load bot management first, and without posibility of unload
         self.load_extensions("cogs.bot_management", store = False)

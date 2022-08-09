@@ -2,13 +2,10 @@ import asyncio
 import logging
 
 from typing import Optional
-from datetime import datetime, timedelta
 
 import discord
 from discord.commands import slash_command, Option
 
-from utils import mention_to_id
-from database.user import User
 from models import Player
 from .base import BaseCog
 
@@ -84,7 +81,7 @@ class Profiles(BaseCog):
                 )
             ):
         player: Player = await Player.from_mention(player, get_discord=True, get_db=True, ctx = ctx)
-        owner: str =  await player.mention_owner()
+        owner: str = await player.mention_owner()
 
         embed: discord.Embed = self.create_profile_embed(
                 discord_name = player.discord.name,
@@ -99,46 +96,10 @@ class Profiles(BaseCog):
                 )
         await ctx.respond(embed = embed)
 
-    @slash_command(
-            name="block",
-            description="block the user")
-    async def block(self,
-            ctx: discord.ApplicationContext,
-            player: Option(
-                input_type = discord.User,
-                name = "user",
-                description = "the user to block"
-                )
-            ):
-        player: Player = await Player.from_mention(player, ctx = ctx)
-        try:
-            User.block(ctx.user.id, player.discord.id)
-            await ctx.respond(f"Blocked {player.discord.mention}", ephemeral=True)
-        except ValueError:
-            await ctx.respond(f"{player.discord.mention} was already blocked", ephemeral=True)
-
-    @slash_command(
-            name="unblock",
-            description="unblock the user")
-    async def unblock(self,
-            ctx: discord.ApplicationContext,
-            player: Option(
-                input_type = discord.User,
-                name = "user",
-                description = "the user to unblock"
-                )
-            ):
-        player: Player = await Player.from_mention(player, ctx = ctx)
-        try:
-            User.block(ctx.user.id, player.discord.id, unblock = True)
-            await ctx.respond(f"Unblocked {player.discord.mention}", ephemeral=True)
-        except ValueError:
-            await ctx.respond(f"{player.discord.mention} was never blocked", ephemeral=True)
-
     def cog_unload(self):
-        logging.info("Cog Relations unloaded")
+        logging.info("Cog Profiles unloaded")
 
 def setup(bot):
     bot.add_cog(Profiles(bot))
-    logging.info("Cog Relations loaded")
+    logging.info("Cog Profiles loaded")
 
