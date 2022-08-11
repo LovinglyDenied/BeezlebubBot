@@ -135,7 +135,7 @@ class User(MappedClass):
         DBManager.sessions[cls.name].flush()
 
     @classmethod
-    def update(cls, discord_id:int):
+    def update(cls, discord_id:int, *, ref_count:Optional[int] = None):
         data = cls.query.find({"discord_id": discord_id})
         if data.count():
             user = data.first()
@@ -147,6 +147,10 @@ class User(MappedClass):
                     join_date = datetime.utcnow()
                     )
             user["controls"] = [user]
+
+        if ref_count is not None:
+            user.ref_counter = ref_count
+
         DBManager.sessions[cls.name].flush()
 
     @classmethod

@@ -3,7 +3,7 @@ import logging
 
 import discord
 from discord.ext import commands
-from discord.commands import slash_command
+from discord.commands import SlashCommandGroup
 
 
 from utils import sched, scheduler_setup
@@ -11,10 +11,11 @@ from database.user import User, UserAlreadyRegisterd, UserNotRegisterd
 from .base import BaseCog
 
 class PlayerManager(BaseCog):
+    data = SlashCommandGroup("data", "Manage the data the bot has on you")
     def __init__(self, bot):
         self.bot = bot
 
-    @slash_command(
+    @data.command(
             name="register", 
             description="registers your user, if this was not done already")
     async def register(self,
@@ -26,9 +27,9 @@ class PlayerManager(BaseCog):
         except UserAlreadyRegisterd:
             await ctx.respond(f"Player {ctx.user.mention} was already registered", ephemeral=True)
 
-    @slash_command(
+    @data.command(
             name="unregister", 
-            description="unreregisters your user, if this was not done already")
+            description="unreregisters your user and deletes all data, if this was not done already")
     async def unregister(self,
             ctx: discord.ApplicationContext
             ):
@@ -38,17 +39,18 @@ class PlayerManager(BaseCog):
         except UserNotRegisterd:
             await ctx.respond(f"Player {ctx.user.mention} was never registered", ephemeral=True)
 
-    @slash_command(
+    @data.command(
             name="update", 
-            description="does a simple update of your last active")
+            description="Updates your database entry")
     async def update(self,
             ctx: discord.ApplicationContext
             ):
-        User.update(ctx.user.id)
-        await ctx.respond(f"Updated {ctx.user.mention}'s Last active status", ephemeral=True)
+        references = len(ctx.user.mutual_guilds)
+        User.update(ctx.user.id, ref_count=references)
+        await ctx.respond(f"Updated {ctx.user.mention}'s database entry", ephemeral=True)
 
-    @slash_command(
-            name="get_data", 
+    @data.command(
+            name="dump", 
             description="Dumps your database entry in chat")
     async def get_data(self,
             ctx: discord.ApplicationContext
@@ -79,17 +81,6 @@ class PlayerManager(BaseCog):
         for member in guild.members:
             if member.bot: continue 
             User.leave(member.id, delete_time=self.bot.user_delete_time)
-
-    @slash_command(
-            name="update_data", 
-            description="does an update of the database")
-    @commands.is_owner()
-    async def update_data(self,
-            ctx: discord.ApplicationContext
-            ):
-        from database.user import database_updater
-        database_updater()
-        await ctx.respond(f"Updated database", ephemeral=True)
 
     @commands.Cog.listener()
     async def on_connect(self):

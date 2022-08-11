@@ -8,10 +8,11 @@ import discord
 from database.user import User, UserNotRegisterd
 from utils.helpers import mention_to_id
 
+from .context import ModelContext, ModelACTX
 from .managed_error import ManagedCommandError
 
 
-class InvalidScope(Exception):
+class InvalidScope(ValueError):
     """A player method was called that cannot be called with the scope it operates under."""
     pass
 
@@ -20,16 +21,26 @@ class Player:
     """A wrapper class for a BeezelbubBot user. 
     Contains discord, database, and future Chaster methods and commands"""
 
-    def __init__(self, *, ctx: discord.ApplicationContext):
-        self.ctx = ctx
+    def __init__(self, *, context: ModelContext):
+        self.context = context
+
+    async def get_dm(self) -> discord.DMChannel:
+        """Returns the DM channel of the bot with this user.
+        Creates it if it didn't jet excist.
+        Raises InvalidScope if not run on instances with initialised discord"""
+        if not hasattr(self, "discord"):
+            raise InvalidScope
+        return self.discord.dm_channel or await self.discord.create_dm()
 
     async def get_owner(self, **kwargs) -> Player:
+        """retuns a Player instance of the owner of the current player,
+        initialised with the regular from_db kwargs in the present context"""
         if not hasattr(self, "db"):
             raise InvalidScope
         # TODO Make sure this is a valid entry.
-        return await Player.from_db_user(
+        return await self.__class__.from_db_user(
             user=self.db.controlled_by[0],
-            ctx=self.ctx,
+            context=self.context,
             **kwargs
         )
 
@@ -61,7 +72,7 @@ class Player:
         raises InvalidScope if not run on instance with initialised db"""
         if not hasattr(self, "db"):
             raise InvalidScope
-        return datetime.utcnow() - self.db.last_active > self.ctx.bot.derlict_time
+        return datetime.utcnow() - self.db.last_active > self.context.bot.derlict_time
 
     @property
     def deleteable(self) -> bool:
@@ -69,7 +80,7 @@ class Player:
         raises InvalidScope if not run on instance with initialised db"""
         if not hasattr(self, "db"):
             raise InvalidScope
-        return datetime.utcnow() - self.db.last_active > self.ctx.bot.user_delete_time
+        return datetime.utcnow() - self.db.last_active > self.context.bot.user_delete_time
 
     @property
     def last_active_str(self) -> Optional[str]:
@@ -79,7 +90,7 @@ class Player:
             raise InvalidScope
         if self.db.last_active == datetime.min:
             return None
-        return self.db.last_active.strftime(self.ctx.bot.date_format)
+        return self.db.last_active.strftime(self.context.bot.date_format)
 
     @property
     def join_date_str(self) -> str:
@@ -87,50 +98,49 @@ class Player:
         raises InvalidScope if not run on instance with initialised db"""
         if not hasattr(self, "db"):
             raise InvalidScope
-        return self.db.join_date.strftime(self.ctx.bot.date_format)
+        return self.db.join_date.strftime(self.context.bot.date_format)
 
     async def is_administrator(self) -> bool:
-        """Whether the user is a bot administrator"""
+        """Whether the user is a bot administrator
+        raises InvalidScope if not run on instance with initialised discord"""
         if not hasattr(self, "discord"):
             raise InvalidScope
-        return await self.ctx.bot.is_owner(self.discord)
+        return await self.context.bot.is_owner(self.discord)
 
     @classmethod
     async def from_mention(
         cls,
         mention_string: str,
         *,
-        ctx: discord.ApplicationContext,
+        context: ModelContext,
         **kwargs
     ) -> Player:
         """Create a new instance from a mention string
-        responds to ctx and trows ManagedCommandError if not possible"""
+        responds to context and trows ManagedCommandError if not possible"""
         try:
             discord_id = mention_to_id(mention_string)
         except ValueError:
-            await ctx.respond(
-                f"{mention_string} is not recognised as a player. Are you sure you used either a mention or a discord user ID?", 
-                ephemeral=True
+            await context.exit(
+                f"{mention_string} is not recognised as a player. Are you sure you used either a mention or a discord user ID?"
                 )
-            raise ManagedCommandError
-
-        return await cls._init(discord_id=discord_id, ctx=ctx, **kwargs)
+        return await cls._init(discord_id=discord_id, context=context, **kwargs)
 
     @classmethod
     async def from_db_user(
         cls,
         user: User,
         *,
-        ctx: discord.ApplicationContext,
+        context: ModelContext,
         get_discord: bool = True,
         get_chaster: bool = False
     ) -> Player:
+        """Initialises a player with regular kwargs from a User object"""
 
-        instance = Player(ctx=ctx)
-        instance.db = user
+        instance = cls(context=context)
+        instance.db: User = user
 
         if get_discord:
-            instance.discord = await instance._get_discord(instance.db.discord_id)
+            instance.discord: Union[discord.User, discord.Member] = await instance._get_discord(instance.db.discord_id)
 
         return instance
     
@@ -142,11 +152,12 @@ class Player:
         get_db: bool = False,
         get_chaster: bool = False
     ) -> Player:
-        instance = Player(ctx=ctx)
+        """Initialises a player with regular kwargs for the player who excecuted the command"""
+        instance = cls(context=ModelACTX(ctx))
         instance.discord = ctx.user
 
         if get_db:
-            instance.db = await instance._get_db(discord_id=ctx.user.id)
+            instance.db: User = await instance._get_db(discord_id=ctx.user.id)
 
         return instance
 
@@ -156,41 +167,44 @@ class Player:
         *,
         discord_id: Optional[int] = None,
         db_id: Optional[int] = None,
-        ctx: discord.ApplicationContext,
+        context: ModelContext,
         get_discord: bool = True,
         get_db: bool = False,
         get_chaster: bool = False,
         as_user: Optional[int] = None
     ) -> Player:
         """Initialises with the given flags, from the given data.
-        If from_ctx is passed as false, it needs a discord_id or db_id to initialise any components
+        It needs a discord_id or db_id to initialise any components
         raises ValueError if called with incorrect options.
-        responds to ctx and trows ManagedCommandError for "runtime" errors"""
-        instance = Player(ctx=ctx)
+        responds to context and trows ManagedCommandError for "runtime" errors"""
+
+        if get_discord == False and get_db == False:
+            raise ValueError("Cannot init player without either db or discord")
+
+        instance = cls(context=context)
 
         # Use the discord_id from the database if None provided
         if discord_id is None and get_discord == True:
             get_db = True
 
         if get_db == True or as_user is not None:
-            instance.db = await instance._get_db(discord_id=discord_id, db_id=db_id, as_user=as_user)
+            instance.db: User = await instance._get_db(discord_id=discord_id, db_id=db_id, as_user=as_user)
 
         if get_discord:
-            instance.discord = await instance._get_discord(discord_id or instance.db.discord_id)
+            instance.discord: Union[discord.User, discord.Member] = await instance._get_discord(discord_id or instance.db.discord_id)
 
         return instance
 
     async def _get_discord(self, discord_id: int) -> Union[discord.User, discord.Member]:
         """gets the discord instance of the player, or returns excisting one.
-        responds to ctx and trows ManagedCommandError if not possible"""
+        responds to context and trows ManagedCommandError if not possible"""
         if hasattr(self, "discord"):
             return self.discord
 
         discord: Union[discord.Member,
-                       discord.User] = self.ctx.bot.get_user(discord_id)
-        if discord is None:  # Make sure assignment never happens if None
-            self.ctx.respond(f"Could not find a user of the ID {discord_id}")
-            raise ManagedCommandError
+                       discord.User] = self.context.bot.get_user(discord_id)
+        if discord is None: 
+            await self.context.exit(f"Could not find a user of the ID {discord_id}")
 
         return discord
 
@@ -202,7 +216,7 @@ class Player:
         as_user: Optional[int] = None
     ) -> User:
         """Gets the db instance of the player, or returns excisting one.
-        responds to ctx and trows ManagedCommandError if not possible"""
+        responds to context and trows ManagedCommandError if not possible"""
         if hasattr(self, "db") and as_user is None:
             return self.db
 
@@ -210,8 +224,7 @@ class Player:
             db = User.get_user(discord_id=discord_id,
                                db_id=db_id, as_user=as_user)
         except UserNotRegisterd:
-            await self.ctx.respond(f"No data found for {self.discord.mention}", ephemeral=True)
-            raise ManagedCommandError
+            await self.context.exit(f"No data found for {self.discord.mention}")
 
         return db
 

@@ -2,14 +2,21 @@ import asyncio
 import logging
 
 import discord
-from discord import guild_only, default_permissions, RawReactionActionEvent
+from discord import RawReactionActionEvent, Permissions
 from discord.ext import commands
-from discord.commands import slash_command, Option
+from discord.commands import SlashCommandGroup, Option
 
 from database.server import ServerSettings
+from models import MainTextChannel, ModelACTX
 from .base import BaseCog
 
 class ReactionRoles(BaseCog):
+    roles = SlashCommandGroup(
+            "roles", 
+            "configuration of role-select",
+            default_member_permissions = Permissions(administrator=True),
+            guild_only = True
+        )
     def __init__(self, bot):
         self.bot = bot
         self.special_roles = {
@@ -19,18 +26,20 @@ class ReactionRoles(BaseCog):
                 "💚": "safe"
                 }
 
-    @slash_command(
-            name="role_channel", 
-            description="set the role-select ")
-    @guild_only()
-    @default_permissions(administrator=True)
-    async def role_channel(self, 
+    @roles.command(
+            name="channel", 
+            description="set the channel for role-select")
+    async def channel(self, 
             ctx: discord.ApplicationContext,
-            channel: Option(str)
+            channel_mention: Option(
+                input_type = discord.channel,
+                name = "channel",
+                description = "The channel you want to use"
+                )
             ):
-        ServerSettings.change_setting(ctx.guild.id, "role_channel", channel)
-        await ctx.respond(f"The role channel has been changed to {channel}", ephemeral=True)
-
+        channel = await MainTextChannel.from_mention(channel_mention, context=ModelACTX(ctx))
+        ServerSettings.change_setting(ctx.guild.id, "role_channel", int(channel.discord.id))
+        await ctx.respond(f"The role channel has been changed to {channel.discord.mention}", ephemeral=True)
 
     async def add_role_from_payload(self, payload: RawReactionActionEvent, role: discord.Role):
         if role in payload.member.roles:

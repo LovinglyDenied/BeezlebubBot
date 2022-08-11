@@ -2,23 +2,35 @@ import asyncio
 import logging
 
 import discord
-from discord import guild_only, default_permissions
+from discord import Permissions
 from discord.ext import commands
-from discord.commands import slash_command, Option
+from discord.commands import SlashCommandGroup, Option
 
 from database.server import ServerSettings
+from models import MainTextChannel, ModelACTX, ModelCCTX, create_main_text_channel
 from .base import BaseCog
 
 class ServerManager(BaseCog):
+    server = SlashCommandGroup(
+            "server", 
+            "Server administrator commands",
+            default_member_permissions = Permissions(administrator=True),
+            guild_only = True
+        )
+    welcome = server.create_subgroup(
+            "welcome", 
+            "Welcome message settings",
+            default_member_permissions = Permissions(administrator=True),
+            guild_only = True
+            )
+
     def __init__(self, bot):
         self.bot = bot
 
-    @slash_command(
-            name="serversettings", 
+    @server.command(
+            name="settings", 
             description="set the general settings for your server")
-    @guild_only()
-    @default_permissions(administrator=True)
-    async def serversettings(self,
+    async def settings(self,
             ctx: discord.ApplicationContext,
             setting: Option(
                 input_type = str,
@@ -31,42 +43,66 @@ class ServerManager(BaseCog):
                 ),
             value: Option(bool)
             ):
-        ServerSettings.change_setting(ctx.guild.id, setting, value)
+        ServerSettings.change_setting(ctx.guild.id, str(setting), bool(value))
         await ctx.respond(f"changed `{setting}` to `{value}`", ephemeral=True)
 
-    @slash_command(
-            name="welocomeettings", 
-            description="set the welcome settings for your server")
-    @guild_only()
-    @default_permissions(administrator=True)
-    async def welcomesettings(self,
+    @welcome.command(
+            name="channels",
+            description="set the channels for your welcome messge."
+            )
+    async def welcome_channels(self,
+            ctx: discord.ApplicationContext,
+            channel_type: Option(
+                input_type = str,
+                name = "type",
+                description = "The type of channel you want to change",
+                choices = [
+                    "main",
+                    "rules_button",
+                    "roles_button",
+                    "guide_button"
+                    ]
+                ),
+            channel_mention: Option(
+                input_type = discord.channel,
+                name = "channel",
+                description = "The channel you want to use"
+                )
+            ):
+        setting_name = f"{channel_type}_channel"
+        channel = await MainTextChannel.from_mention(channel_mention, context=ModelACTX(ctx))
+        ServerSettings.change_setting(ctx.guild.id, setting_name, int(channel.discord.id), group = "welcome")
+        await ctx.respond(
+                f"changed the `{channel_type}` channel to {channel.discord.mention}", 
+                ephemeral = True
+                )
+
+    @welcome.command(
+            name="text", 
+            description="set the text for your welcome messages")
+    async def welcome_text(self,
             ctx: discord.ApplicationContext,
             setting: Option(
                 input_type = str,
                 name = "setting",
                 description = "The setting you want to set",
                 choices = [
-                    "welcome_message",
-                    "welcome_channel",
-                    "rules_link",
-                    "rules_message",
-                    "roles_link",
-                    "roles_message",
-                    "guide_link",
-                    "guide_message"
+                    "header",
+                    "rules_button",
+                    "roles_button",
+                    "guide_button"
                     ]
                 ),
-            value: Option(str)
+            text: Option(str)
             ):
-        ServerSettings.change_setting(ctx.guild.id, setting, value, group = "welcome")
-        await ctx.respond(f"changed `welcome.{setting}` to `{value}`", ephemeral=True)
+        setting_name = f"{setting}_text"
+        ServerSettings.change_setting(ctx.guild.id, setting_name, str(text), group = "welcome")
+        await ctx.respond(f"changed `{setting}` text to `{text}`", ephemeral=True)
 
-    @slash_command(
-            name="get_settings", 
+    @server.command(
+            name="dump", 
             description="Dumps the database entry of your server in chat")
-    @guild_only()
-    @default_permissions(administrator=True)
-    async def get_settings(self,
+    async def dump(self,
             ctx: discord.ApplicationContext
             ):
         await ctx.respond(
@@ -127,6 +163,42 @@ class ServerManager(BaseCog):
 
         return discord.ui.View(rules_button, roles_button, guide_button)
 
+    async def run_welcome_message(self, settings: ServerSettings, member: discord.Member):
+        init_context = ModelCCTX(channel = member.guild.system_channel, bot = self.bot)
+        channel = await create_main_text_channel(
+                discord_id = settings.welcome.main_channel,
+                context = init_context)
+
+        if channel.discord.guild.id != member.guild.id:
+            init_context.exit(f"Cannot send welcome message in {channel}, as it is not in the same guild.")
+
+        main_context = ModelCCTX(channel = channel.discord, bot = self.bot)
+
+        rules_channel = await create_main_text_channel(
+                discord_id = settings.welcome.rules_button_channel,
+                context = main_context)
+        roles_channel = await create_main_text_channel(
+                discord_id = settings.welcome.roles_button_channel,
+                context = main_context)
+        guide_channel = await create_main_text_channel(
+                discord_id = settings.welcome.guide_button_channel,
+                context = main_context)
+
+        embed: discord.Embed  = self.create_welcome_embed(
+                title         = settings.welcome.header_text,
+                member_join   = member.created_at.strftime(self.bot.date_format),
+                member_avatar = str(member.display_avatar),
+                member_name   = str(member.mention)
+                )
+        view: discord.ui.View = self.create_welcome_view(
+                rules_link    = rules_channel.discord.jump_url,
+                rules_message = settings.welcome.rules_button_text,
+                roles_link    = roles_channel.discord.jump_url,
+                roles_message = settings.welcome.roles_button_text,
+                guide_link    = guide_channel.discord.jump_url,
+                guide_message = settings.welcome.guide_button_text
+                )
+        await channel.discord.send(embed=embed, view=view)
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
@@ -134,23 +206,7 @@ class ServerManager(BaseCog):
             return
         settings = ServerSettings.query.find({"server_id": member.guild.id}).first()
         if settings.run_welcome_message:
-            channel = member.guild.get_channel(settings.welcome.welcome_channel)
-            embed: discord.Embed  = self.create_welcome_embed(
-                    title         = settings.welcome.welcome_message,
-                    member_join   = member.created_at.strftime(self.bot.date_format),
-                    member_avatar = str(member.display_avatar),
-                    member_name   = str(member.mention)
-                    )
-            view: discord.ui.View = self.create_welcome_view(
-                    rules_link    = settings.welcome.rules_link,
-                    rules_message = settings.welcome.rules_message,
-                    roles_link    = settings.welcome.roles_link,
-                    roles_message = settings.welcome.roles_message,
-                    guide_link    = settings.welcome.guide_link,
-                    guide_message = settings.welcome.guide_message
-                    )
-            await channel.send(embed=embed, view=view)
-
+            await self.run_welcome_message(settings, member)
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild:discord.Guild):

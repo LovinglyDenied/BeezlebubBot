@@ -10,7 +10,7 @@ class classproperty:
         return self.fget(owner_cls)
 
 def mention_to_id(mention_string: str) -> int:
-    """py-chord returns a mention-string for the discord.User Option in commands
+    """py-chord returns a mention-string for the discord.User and disord.Channel Option in commands
     This, according to the documentation, should not happen, but alas.
     this function transforms the string into something that can actually be used"""
-    return int(mention_string.strip("<>@!"))
+    return int(mention_string.strip("<>@!#"))

@@ -3,5 +3,6 @@ extensions = [
         "cogs.role_select",
         "cogs.player_management",
         "cogs.profiles",
-        "cogs.relations"
+        "cogs.blocking"
     ]
+

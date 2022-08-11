@@ -6,7 +6,7 @@ from typing import Optional
 import discord
 from discord.commands import slash_command, Option
 
-from models import Player
+from models import Player, ModelACTX
 from .base import BaseCog
 
 class Profiles(BaseCog):
@@ -80,7 +80,12 @@ class Profiles(BaseCog):
                 description = "The user to get the profile from"
                 )
             ):
-        player: Player = await Player.from_mention(player, get_discord=True, get_db=True, ctx = ctx)
+        player: Player = await Player.from_mention(
+                player, 
+                get_discord=True, 
+                get_db=True, 
+                context=ModelACTX(ctx)
+                )
         owner: str = await player.mention_owner()
 
         embed: discord.Embed = self.create_profile_embed(

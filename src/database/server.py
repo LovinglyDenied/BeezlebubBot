@@ -24,25 +24,24 @@ class ServerSettings(MappedClass):
     run_welcome_message = FieldProperty(s.Bool(
             if_missing = True))
 
-    role_channel = FieldProperty(s.String)
+    role_channel = FieldProperty(s.Int)
 
-    #Making sure to give every setting a plausable value
-    #The API otherwise trows an HTTP error, difficult to debug for users
+    #Initialising with the data from Lucifer's Lockup Lobby to give a valid starting point.
     welcome = FieldProperty(s.Object({
-        "welcome_message": s.String(
+        "header_text": s.String(
             if_missing = "Welcome to the Server!"),
-        "welcome_channel": s.Int,
-        "rules_link": s.String(
-            if_missing = "https://discord.com/channels/979520017215393852/979527791148146688"),
-        "rules_message": s.String(
+        "main_channel": s.Int,
+        "rules_button_channel": s.Int(
+            if_missing = 979527791148146688),
+        "rules_button_text": s.String(
             if_missing = "Rules"),
-        "roles_link": s.String(
-            if_missing = "https://discord.com/channels/979520017215393852/999107304437854248"),
-        "roles_message": s.String(
+        "roles_button_channel": s.Int(
+            if_missing = 999107304437854248),
+        "roles_button_text": s.String(
             if_missing = "Role-select"),
-        "guide_link": s.String(
-            if_missing = "https://discord.com/channels/979520017215393852/999107209843707935"),
-        "guide_message": s.String(
+        "guide_button_channel": s.Int(
+            if_missing = 999107209843707935),
+        "guide_button_text": s.String(
             if_missing = "Bot command guide")
         }))
 
@@ -60,14 +59,14 @@ class ServerSettings(MappedClass):
             ])
         welcome = "\n".join([
             f"== Welcome Message ==",
-            f"welcome_message = '{self.welcome.welcome_message}'",
-            f"welcome_channel = '{self.welcome.welcome_channel}'",
-            f"rules_link = '{self.welcome.rules_link}'",
-            f"rules_message = '{self.welcome.rules_message}'",
-            f"roles_link = '{self.welcome.roles_link}'",
-            f"roles_message = '{self.welcome.roles_message}'",
-            f"guide_link = '{self.welcome.guide_link}'",
-            f"guide_message = '{self.welcome.guide_message}'",
+            f"header_text = '{self.welcome.header_text}'",
+            f"main_channel = '{self.welcome.main_channel}'",
+            f"rules_button_channel = '{self.welcome.rules_button_channel}'",
+            f"rules_button_text = '{self.welcome.rules_button_text}'",
+            f"roles_button_channel = '{self.welcome.roles_button_channel}'",
+            f"roles_button_text = '{self.welcome.roles_button_text}'",
+            f"guide_button_channel = '{self.welcome.guide_button_channel}'",
+            f"guide_button_text = '{self.welcome.guide_button_text}'",
             ])
         return "\n\n".join([
                 main,
@@ -85,8 +84,8 @@ class ServerSettings(MappedClass):
             cls(
                 server_id = server_id, 
                 welcome = {
-                    "welcome_channel": channel_id,
-                    "welcome_message": welcome_message
+                    "main_channel": channel_id,
+                    "header_text": welcome_message
                     }
                 )
             DBManager.sessions[cls.name].flush()
