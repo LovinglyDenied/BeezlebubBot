@@ -6,9 +6,11 @@ import discord
 
 from .managed_error import ManagedCommandError
 
+
 class InvalidContext(Exception):
     """The paremeters provided did not create a valid ModelContext"""
     pass
+
 
 class ModelContext(Protocol):
     """A basic context protocol, that all contexts should inherit from to keep feature-parity."""
@@ -22,6 +24,7 @@ class ModelContext(Protocol):
     async def exit(self, message: str) -> None:
         """The method to be called to respond to the context and raise a ManagedCommandError"""
         raise NotImplementedError
+
 
 class ModelACTX(ModelContext):
     """A ModelContext from a discord ApplicationContext"""
@@ -37,8 +40,9 @@ class ModelACTX(ModelContext):
         return self.ctx.bot
 
     async def exit(self, message: str) -> None:
-        await self.ctx.respond(message, ephemeral = True)
+        await self.ctx.respond(message, ephemeral=True)
         raise ManagedCommandError
+
 
 class ModelCCTX(ModelContext):
     """A ModelContext from a discord TextChannel & Bot"""

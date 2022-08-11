@@ -9,14 +9,17 @@ from pymongo.database import Database
 
 from utils import classproperty
 
+
 class DatabaseConnectionError(Exception):
     """The database singleton was called without it being connected
     or singleton init called with it already being connected."""
     pass
 
+
 class FaultyDatabase(Exception):
     """The initialised database appeared to not have been of the correct type."""
     pass
+
 
 class DBManager:
     """Database wrapper singleton, controlls the connection to the MongoDB client
@@ -40,18 +43,20 @@ class DBManager:
     def __init__(self, *, uri: Optional[str] = None):
         cls = self.__class__
         if uri:
-            if hasattr(cls, "_uri"): raise DatabaseConnectionError
+            if hasattr(cls, "_uri"):
+                raise DatabaseConnectionError
             cls._uri: str = uri
             cls.sessions: dict = {}
 
             cls.datastore: DataStore = create_datastore(uri)
-            #If it looks like a duck and quacks like a duck, it might still trow an error
+            # If it looks like a duck and quacks like a duck, it might still trow an error
             if not isinstance(cls.datastore.db, Database):
                 raise FaultyDatabase
             if not isinstance(cls.datastore.db.client, MongoClient):
                 raise FaultyDatabase
 
-        if not hasattr(cls, "_uri"): raise DatabaseConnectionError
+        if not hasattr(cls, "_uri"):
+            raise DatabaseConnectionError
 
     @classproperty
     def db(cls):
@@ -63,8 +68,8 @@ class DBManager:
         return db
 
     @classmethod
-    def add_session(cls, name:str):
+    def add_session(cls, name: str):
         """adds a ming ThreadLocalODMSession to the .sessions dict, and returns it."""
-        cls.sessions[name]: ThreadLocalODMSession = ThreadLocalODMSession(bind = cls.datastore)
+        cls.sessions[name]: ThreadLocalODMSession = ThreadLocalODMSession(
+            bind=cls.datastore)
         return cls.sessions[name]
-

@@ -9,6 +9,7 @@ from utils.helpers import mention_to_id
 from .context import ModelContext
 from .managed_error import ManagedCommandError
 
+
 class MainTextChannel:
     """A wrapper class for a guild text channel"""
 
@@ -30,7 +31,7 @@ class MainTextChannel:
         except ValueError:
             await context.exit(
                 f"{mention_string} is not recognised as a Channel. Are you sure you used either a mention or a discord channel ID?",
-                )
+            )
         return await cls._init(discord_id=discord_id, context=context, **kwargs)
 
     @classmethod
@@ -38,7 +39,7 @@ class MainTextChannel:
             cls,
             *,
             discord_id: int,
-            context: ModelContext 
+            context: ModelContext
     ) -> MainTextChannel:
         """Initialses from an int ID
         Only initialises via ID to make sure the channel is in cashe
@@ -48,31 +49,34 @@ class MainTextChannel:
         if not isinstance(discord_id, int):
             raise ValueError
 
+        instance = cls(context=context)
+
         channel: Optional[
-                Union[
-                    abc.GuildChannel, 
-                    discord.Thread, 
-                    abc.PrivateChannel
-                    ]
-                ] = context.bot.get_channel(int(discord_id))
-        
+            Union[
+                abc.GuildChannel,
+                discord.Thread,
+                abc.PrivateChannel
+            ]
+        ] = context.bot.get_channel(int(discord_id))
+
         if channel == None:
             try:
                 channel = await context.bot.fetch_channel(int(discord_id))
+                instance.fetched = True
             except (discord.InvalidData, discord.NotFound, discord.Forbidden) as error:
                 context.exit(
-                        f"Could not find channel {discord_id}, {error}"
-                        )
+                    f"Could not find channel {discord_id}, {error}"
+                )
 
         if not isinstance(channel, discord.TextChannel):
             await context.exit(
                 f"{channel.mention} is not a valid Guild TextChannel"
-                )
+            )
 
-        instance = cls(context = context)
         instance.discord: discord.TextChannel = channel
 
         return instance
+
 
 async def create_main_text_channel(*args, **kwargs) -> MainTextChannel:
     return await MainTextChannel._init(*args, **kwargs)

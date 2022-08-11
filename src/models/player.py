@@ -7,7 +7,6 @@ import discord
 
 from database.user import User, UserNotRegisterd
 from utils.helpers import mention_to_id
-
 from .context import ModelContext, ModelACTX
 from .managed_error import ManagedCommandError
 
@@ -60,8 +59,8 @@ class Player:
 
     async def mention_owner(self) -> Optional[str]:
         """Returns mention string for player's owner"""
-        owner = await self.get_owner(get_discord = True)
-        if owner == self: 
+        owner = await self.get_owner(get_discord=True)
+        if owner == self:
             return None
         else:
             return owner.discord.mention
@@ -122,7 +121,7 @@ class Player:
         except ValueError:
             await context.exit(
                 f"{mention_string} is not recognised as a player. Are you sure you used either a mention or a discord user ID?"
-                )
+            )
         return await cls._init(discord_id=discord_id, context=context, **kwargs)
 
     @classmethod
@@ -143,7 +142,7 @@ class Player:
             instance.discord: Union[discord.User, discord.Member] = await instance._get_discord(instance.db.discord_id)
 
         return instance
-    
+
     @classmethod
     async def from_ctx(
         cls,
@@ -202,9 +201,14 @@ class Player:
             return self.discord
 
         discord: Union[discord.Member,
-                       discord.User] = self.context.bot.get_user(discord_id)
-        if discord is None: 
-            await self.context.exit(f"Could not find a user of the ID {discord_id}")
+                       discord.User] = self.context.bot.get_user(int(discord_id))
+
+        if discord is None:
+            try:
+                await self.context.bot.fetch_user(int(discord_id))
+                self.fetched = True
+            except discord.NotFound:
+                await self.context.exit(f"Could not find a user of the ID {discord_id}")
 
         return discord
 

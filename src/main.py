@@ -37,24 +37,25 @@ class BeezlebubBot(commands.Bot):
         logging.info("=== Starting ===")
 
         # Establish database connection
-        self.database_manager = connect.DBManager(uri = self.datastore)
+        self.database_manager = connect.DBManager(uri=self.datastore)
 
         # Load bot management first, and without posibility of unload
-        self.load_extensions("cogs.bot_management", store = False)
-        
+        self.load_extensions("cogs.bot_management", store=False)
+
         # Load all other extensions
         for extension in self.init_extensions:
             self.load_extensions(extension, store=False)
+
 
 def logger_setup():
     logger = logging.getLogger("discord")
     logger.setLevel(logging.INFO)
 
     handler = logging.handlers.RotatingFileHandler(
-        filename = "logs.log",
-        encoding = "utf-8",
-        maxBytes = 32*1024*1024,
-        backupCount = 5,
+        filename="logs.log",
+        encoding="utf-8",
+        maxBytes=32*1024*1024,
+        backupCount=5,
     )
     time_format = '%Y-%m-%d %H:%M:%S'
     formatter = logging.Formatter(
@@ -65,9 +66,10 @@ def logger_setup():
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
+
 def main():
-    # from dotenv import load_dotenv
-    # load_dotenv()
+    from dotenv import load_dotenv
+    load_dotenv()
 
     logger_setup()
 
@@ -79,21 +81,22 @@ def main():
     )
 
     datastore = os.getenv("DATATOKEN")
-    
+
     date_format = "%d %b %Y"
     derlict_time = timedelta(days=10)
     user_delete_time = timedelta(days=93)
 
     bot = BeezlebubBot(
         commands.when_mentioned_or('!'),
-        extensions = extensions,
-        intents = intents,
-        datastore = datastore,
-        date_format = date_format,
-        derlict_time = derlict_time,
-        user_delete_time = user_delete_time
+        extensions=extensions,
+        intents=intents,
+        datastore=datastore,
+        date_format=date_format,
+        derlict_time=derlict_time,
+        user_delete_time=user_delete_time
     )
     bot.run(os.getenv("BOTTOKEN"))
+
 
 if __name__ == "__main__":
     main()

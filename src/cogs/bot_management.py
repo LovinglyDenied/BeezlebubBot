@@ -9,6 +9,7 @@ from models import Player
 from cogs import extensions
 from .base import BaseCog
 
+
 class BotManager(BaseCog):
     def __init__(self, bot):
         self.bot = bot
@@ -17,7 +18,8 @@ class BotManager(BaseCog):
         name="cog",
         description="manage the cogs of the bot")
     @commands.is_owner()
-    async def manage_cogs(self,
+    async def manage_cogs(
+        self,
         ctx: discord.ApplicationContext,
         action: Option(
             input_type=str,
@@ -39,7 +41,7 @@ class BotManager(BaseCog):
         # Redundency
         player = await Player.from_ctx(ctx)
         if not await player.is_administrator():
-            await ctx.respond(f"You do not have permission to use this command", ephemeral = True)
+            await ctx.respond(f"You do not have permission to use this command", ephemeral=True)
             return
 
         if extension == "all":
@@ -73,7 +75,7 @@ class BotManager(BaseCog):
     def cog_unload(self):
         logging.info("Cog Bot Management Unloaded")
 
+
 def setup(bot):
     bot.add_cog(BotManager(bot))
     logging.info("Cog Bot Management loaded")
-
