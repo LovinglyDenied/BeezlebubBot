@@ -89,6 +89,7 @@ class User(MappedClass):
     _controls = ForeignIdProperty("User", uselist=True)
     controls = RelationProperty("User", via=("_controls", True))
     controlled_by = RelationProperty("User", via=("_controls", False))
+    allow_requests = FieldProperty(s.Bool(if_missing=True))
     trusts = FieldProperty(s.Bool(if_missing=False))
 
     # To keep players who deleted/refreshed data blocked, discord_id is used instaead of _id.
@@ -124,8 +125,16 @@ class User(MappedClass):
         return user
 
     @classmethod
-    def change_setting(cls, discord_id: int, setting: str, value: Any, *, group: Optional[str] = None):
-        user = cls.get_user(discord_id=discord_id)
+    def change_setting(
+            cls,
+            setting: str,
+            value: Any,
+            discord_id: Optional[int] = None,
+            db_id: Optional[str] = None,
+            *,
+            group: Optional[str] = None
+    ):
+        user = cls.get_user(discord_id=discord_id, db_id=db_id)
 
         if group is not None:
             user[group][setting] = value

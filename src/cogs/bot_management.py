@@ -40,7 +40,7 @@ class BotManager(BaseCog):
     ):
         # Redundency
         player = await Player.from_ctx(ctx)
-        if not await player.is_administrator():
+        if not await player.is_administrator:
             await ctx.respond(f"You do not have permission to use this command", ephemeral=True)
             return
 

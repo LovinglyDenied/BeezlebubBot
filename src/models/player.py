@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime
+from multiprocessing.sharedctypes import Value
 from typing import List, Optional, Union
 
 import discord
 
 from database.user import User, UserNotRegisterd
-from utils.helpers import mention_to_id
+from utils.helpers import mention_to_id, get_player_name
 from .context import ModelContext, ModelACTX
-from .managed_error import ManagedCommandError
 
 
 class InvalidScope(ValueError):
@@ -57,6 +57,14 @@ class Player:
             raise InvalidScope
         return any([user._id == player.db._id for user in self.db.controls])
 
+    @property
+    def has_owner(self) -> bool:
+        """Whether the player has an owner
+        raises InvalidScope if not run on instances with initialised db"""
+        if not hasattr(self, "db"):
+            raise InvalidScope
+        return not self.owns(self)
+
     async def mention_owner(self) -> Optional[str]:
         """Returns mention string for player's owner"""
         owner = await self.get_owner(get_discord=True)
@@ -99,6 +107,7 @@ class Player:
             raise InvalidScope
         return self.db.join_date.strftime(self.context.bot.date_format)
 
+    @property
     async def is_administrator(self) -> bool:
         """Whether the user is a bot administrator
         raises InvalidScope if not run on instance with initialised discord"""
@@ -149,14 +158,15 @@ class Player:
         ctx: discord.ApplicationContext,
         *,
         get_db: bool = False,
-        get_chaster: bool = False
+        get_chaster: bool = False,
+        as_user: Optional[int] = None
     ) -> Player:
         """Initialises a player with regular kwargs for the player who excecuted the command"""
         instance = cls(context=ModelACTX(ctx))
         instance.discord = ctx.user
 
-        if get_db:
-            instance.db: User = await instance._get_db(discord_id=ctx.user.id)
+        if get_db == True or as_user is not None:
+            instance.db: User = await instance._get_db(discord_id=ctx.user.id, as_user=as_user)
 
         return instance
 
@@ -200,17 +210,17 @@ class Player:
         if hasattr(self, "discord"):
             return self.discord
 
-        discord: Union[discord.Member,
-                       discord.User] = self.context.bot.get_user(int(discord_id))
+        member: Optional[Union[discord.Member,
+                               discord.User]] = self.context.bot.get_user(int(discord_id))
+        if member is not None:
+            return member
 
-        if discord is None:
-            try:
-                await self.context.bot.fetch_user(int(discord_id))
-                self.fetched = True
-            except discord.NotFound:
-                await self.context.exit(f"Could not find a user of the ID {discord_id}")
-
-        return discord
+        try:
+            member = await self.context.bot.fetch_user(int(discord_id))
+            self.fetched = True
+            return member
+        except discord.NotFound:
+            await self.context.exit(f"Could not find a user of the ID {discord_id}")
 
     async def _get_db(
         self,
@@ -225,10 +235,20 @@ class Player:
             return self.db
 
         try:
-            db = User.get_user(discord_id=discord_id,
-                               db_id=db_id, as_user=as_user)
+            db = User.get_user(
+                discord_id=discord_id,
+                db_id=db_id,
+                as_user=as_user
+            )
         except UserNotRegisterd:
-            await self.context.exit(f"No data found for {self.discord.mention}")
+            if discord_id is not None:
+                discord_name = await get_player_name(
+                    discord_id, bot=self.context.bot)
+                await self.context.exit(f"No data found for {discord_name}")
+            elif db_id is not None:
+                await self.context.exit(f"Database entry not found: {db_id}")
+            else:
+                raise ValueError  # User.get_user should have already done this, but better safe than sorry
 
         return db
 

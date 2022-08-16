@@ -7,7 +7,6 @@ from discord import abc
 
 from utils.helpers import mention_to_id
 from .context import ModelContext
-from .managed_error import ManagedCommandError
 
 
 class MainTextChannel:
