@@ -6,7 +6,7 @@ from typing import List, Coroutine
 import discord
 from discord.commands import SlashCommandGroup, Option
 
-from database.user import User
+from database.user import DBUser
 from utils import mention_to_id, get_player_name
 from models import Player, ModelACTX
 from .base import BaseCog
@@ -30,9 +30,16 @@ class Blocking(BaseCog):
             description="the user to block"
         )
     ):
+        instantiator = await Player.from_ctx(ctx)
         player: Player = await Player.from_mention(player, context=ModelACTX(ctx))
+        if player == instantiator:
+            await ctx.respond("You cannot block yourself, silly!", ephemeral=True)
+            return
+        if player.discord.id == ctx.me.id:
+            await ctx.respond("You cannot block the bot. If you wish to be removed from any bot management, use `/data unregister` instead.", ephemeral=True)
+            return
         try:
-            User.block(ctx.user.id, player.discord.id)
+            DBUser.block(ctx.user.id, player.discord.id)
             await ctx.respond(f"Blocked {player.discord}", ephemeral=True)
         except ValueError:
             await ctx.respond(f"{player.discord} was already blocked", ephemeral=True)
@@ -53,7 +60,7 @@ class Blocking(BaseCog):
         player_id: int = mention_to_id(player)
         player_name: str = await get_player_name(player_id, bot=self.bot)
         try:
-            User.block(ctx.user.id, player_id, unblock=True)
+            DBUser.block(ctx.user.id, player_id, unblock=True)
             await ctx.respond(f"Unblocked {player_name}", ephemeral=True)
         except ValueError:
             await ctx.respond(f"{player_name} was never blocked", ephemeral=True)

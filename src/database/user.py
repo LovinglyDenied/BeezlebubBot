@@ -33,7 +33,7 @@ class RefCountUpdater:
         user_ids = []
         for guild in self.bot.guilds:
             user_ids += [member.id for member in guild.members]
-        User.update_database(user_ids, delete_time=self.bot.user_delete_time)
+        DBUser.update_database(user_ids, delete_time=self.bot.user_delete_time)
 
 
 class UserKinks(MappedClass):
@@ -53,7 +53,7 @@ class UserKinks(MappedClass):
         return cls.__mongometa__.name
 
 
-class User(MappedClass):
+class DBUser(MappedClass):
     class __mongometa__:
         name = "user"
         session = DBManager.add_session(name)
@@ -86,9 +86,9 @@ class User(MappedClass):
         "swear": s.Bool(if_missing=False)
     }))
 
-    _controls = ForeignIdProperty("User", uselist=True)
-    controls = RelationProperty("User", via=("_controls", True))
-    controlled_by = RelationProperty("User", via=("_controls", False))
+    _controls = ForeignIdProperty("DBUser", uselist=True)
+    controls = RelationProperty("DBUser", via=("_controls", True))
+    controlled_by = RelationProperty("DBUser", via=("_controls", False))
     allow_requests = FieldProperty(s.Bool(if_missing=True))
     trusts = FieldProperty(s.Bool(if_missing=False))
 
@@ -106,7 +106,7 @@ class User(MappedClass):
         discord_id: Optional[int] = None,
         db_id: Optional[str] = None,
         as_user: Optional[int] = None
-    ) -> User:
+    ) -> DBUser:
         """Returns the document of the asociated user.
         Raises ValueError if neither discord_id nor db_id is provided"""
         if db_id is not None:

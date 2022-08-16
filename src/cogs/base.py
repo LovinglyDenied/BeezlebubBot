@@ -4,7 +4,7 @@ import logging
 import discord
 from discord.ext import commands
 
-from database.user import User
+from database.user import DBUser
 from models import ManagedCommandError
 
 
@@ -35,4 +35,4 @@ class BaseCog(commands.Cog):
         self,
         ctx: discord.ApplicationContext
     ):
-        User.update(ctx.user.id)
+        DBUser.update(ctx.user.id)

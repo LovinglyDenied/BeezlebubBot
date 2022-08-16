@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from multiprocessing.sharedctypes import Value
 from typing import List, Optional, Union
 
 import discord
 
-from database.user import User, UserNotRegisterd
+from database.user import DBUser, UserNotRegisterd
 from utils.helpers import mention_to_id, get_player_name
 from .context import ModelContext, ModelACTX
 
@@ -107,7 +106,6 @@ class Player:
             raise InvalidScope
         return self.db.join_date.strftime(self.context.bot.date_format)
 
-    @property
     async def is_administrator(self) -> bool:
         """Whether the user is a bot administrator
         raises InvalidScope if not run on instance with initialised discord"""
@@ -136,7 +134,7 @@ class Player:
     @classmethod
     async def from_db_user(
         cls,
-        user: User,
+        user: DBUser,
         *,
         context: ModelContext,
         get_discord: bool = True,
@@ -145,7 +143,7 @@ class Player:
         """Initialises a player with regular kwargs from a User object"""
 
         instance = cls(context=context)
-        instance.db: User = user
+        instance.db: DBUser = user
 
         if get_discord:
             instance.discord: Union[discord.User, discord.Member] = await instance._get_discord(instance.db.discord_id)
@@ -166,7 +164,7 @@ class Player:
         instance.discord = ctx.user
 
         if get_db == True or as_user is not None:
-            instance.db: User = await instance._get_db(discord_id=ctx.user.id, as_user=as_user)
+            instance.db: DBUser = await instance._get_db(discord_id=ctx.user.id, as_user=as_user)
 
         return instance
 
@@ -197,7 +195,7 @@ class Player:
             get_db = True
 
         if get_db == True or as_user is not None:
-            instance.db: User = await instance._get_db(discord_id=discord_id, db_id=db_id, as_user=as_user)
+            instance.db: DBUser = await instance._get_db(discord_id=discord_id, db_id=db_id, as_user=as_user)
 
         if get_discord:
             instance.discord: Union[discord.User, discord.Member] = await instance._get_discord(discord_id or instance.db.discord_id)
@@ -228,14 +226,14 @@ class Player:
         discord_id: Optional[int] = None,
         db_id: Optional[int] = None,
         as_user: Optional[int] = None
-    ) -> User:
+    ) -> DBUser:
         """Gets the db instance of the player, or returns excisting one.
         responds to context and trows ManagedCommandError if not possible"""
         if hasattr(self, "db") and as_user is None:
             return self.db
 
         try:
-            db = User.get_user(
+            db = DBUser.get_user(
                 discord_id=discord_id,
                 db_id=db_id,
                 as_user=as_user
