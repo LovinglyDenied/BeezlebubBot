@@ -30,13 +30,10 @@ class Blocking(BaseCog):
             description="the user to block"
         )
     ):
-        instantiator = await Player.from_ctx(ctx)
+        instantiator: Player = await Player.from_ctx(ctx)
         player: Player = await Player.from_mention(player, context=ModelACTX(ctx))
         if player == instantiator:
             await ctx.respond("You cannot block yourself, silly!", ephemeral=True)
-            return
-        if player.discord.id == ctx.me.id:
-            await ctx.respond("You cannot block the bot. If you wish to be removed from any bot management, use `/data unregister` instead.", ephemeral=True)
             return
         try:
             DBUser.block(ctx.user.id, player.discord.id)

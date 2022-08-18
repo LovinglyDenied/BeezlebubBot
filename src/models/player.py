@@ -25,36 +25,95 @@ class Player:
     async def get_dm(self) -> discord.DMChannel:
         """Returns the DM channel of the bot with this user.
         Creates it if it didn't jet excist.
-        Raises InvalidScope if not run on instances with initialised discord"""
+        Raises InvalidScope if not run on instances with initialised discord.
+        Does not guarantee the DM can actually be send."""
         if not hasattr(self, "discord"):
             raise InvalidScope
         return self.discord.dm_channel or await self.discord.create_dm()
 
+    async def try_to_send_dm(
+        self,
+        content: Optional[str] = None,
+        *,
+        embed: Optional[discord.ui.Embed] = None,
+        view: Optional[discord.ui.View] = None
+    ):
+        """Tries to send a DM to the user.
+        Fails quietly if not able to."""
+        channel = await self.get_dm()
+        try:
+            await channel.send(content=content, embed=embed, view=view)
+        except discord.Forbidden:
+            pass
+
+    async def update_owner(self, **kwargs) -> Optional[Player]:
+        """Updates the owner if derelict.
+        returns the owner after the operation"""
+        owner = await self.get_owner(**kwargs)
+        if owner.derelict and self.has_owner:
+            await owner.try_to_send_dm(
+                f"{self.discord.mention} is no longer owned by you because you went derelict")
+            self._set_owner(self, trusts=False)
+            return None
+        else:
+            return owner
+
     async def get_owner(self, **kwargs) -> Player:
         """retuns a Player instance of the owner of the current player,
-        initialised with the regular from_db kwargs in the present context"""
+        initialised with the regular init kwargs in the present context
+        Updates the owner to self if owner was derelict."""
         if not hasattr(self, "db"):
             raise InvalidScope
-        # TODO Make sure this is a valid entry.
-        return await self.__class__.from_db_user(
-            user=self.db.controlled_by[0],
+        return await self.__class__._init(
+            db_id=self.db.controller,
             context=self.context,
+            get_db=True,
             **kwargs
         )
+
+    async def set_owner(self, player: Player, *, trusts: bool):
+        """Sets the player's owner to the one specified if able to."""
+        if not hasattr(self, "discord") or not hasattr(player, "discord"):
+            raise InvalidScope
+        await self.update_owner()
+
+        print(f"setting owner of {self.discord} to {player.discord}")
+
+        if self == player:
+            print("Cannot set owner to self")
+            await self.context.exit("Cannot set owner to self")
+        if self.is_owned_by(player):
+            print("Cannot set new owner, already owned by this player")
+            await self.context.exit(
+                "Cannot set new owner, already owned by this player")
+        if self.has_owner:
+            print("Cannot set owner, new target already has one.")
+            await self.context.exit("Cannot set owner, new target already has one.")
+
+        self._set_owner(player, trusts=trusts)
+
+        await self.try_to_send_dm(f"Your owner is now {player.discord.mention}.")
+        await player.try_to_send_dm(f"You now own {self.discord.mention}.")
+
+    def _set_owner(self, player: Player, *, trusts: bool):
+        if not hasattr(self, "db") or not hasattr(player, "db"):
+            raise InvalidScope
+        DBUser.set_controller(
+            self.db._id, new_owner_id=player.db._id, trusts=trusts)
 
     def is_owned_by(self, player: Player) -> bool:
         """Whether the player specified by argument is owned by the player the method is called on
         raises InvalidScope if not run on instances with initialised db"""
         if not hasattr(self, "db") or not hasattr(player, "db"):
             raise InvalidScope
-        return any([user._id == player.db._id for user in self.db.controlled_by])
+        return player.db._id == self.db.controller
 
     def owns(self, player: Player) -> bool:
         """Whether the player specified by argument owns the player the method is called on
         raises InvalidScope if not run on instances with initialised db"""
         if not hasattr(self, "db") or not hasattr(player, "db"):
             raise InvalidScope
-        return any([user._id == player.db._id for user in self.db.controls])
+        return self.db._id == player.db.controller
 
     @property
     def has_owner(self) -> bool:
@@ -73,12 +132,12 @@ class Player:
             return owner.discord.mention
 
     @property
-    def derlict(self) -> bool:
-        """whether the user is currently derlict
+    def derelict(self) -> bool:
+        """whether the user is currently derelict
         raises InvalidScope if not run on instance with initialised db"""
         if not hasattr(self, "db"):
             raise InvalidScope
-        return datetime.utcnow() - self.db.last_active > self.context.bot.derlict_time
+        return datetime.utcnow() - self.db.last_active > self.context.bot.derelict_time
 
     @property
     def deleteable(self) -> bool:
@@ -188,7 +247,13 @@ class Player:
         if get_discord == False and get_db == False:
             raise ValueError("Cannot init player without either db or discord")
 
+        if db_id is None and discord_id is None:
+            raise ValueError("Cannot init player without reference")
+
         instance = cls(context=context)
+
+        if discord_id == instance.context.bot.application_id:
+            await instance.context.exit("You cannot target the bot")
 
         # Use the discord_id from the database if None provided
         if discord_id is None and get_discord == True:
@@ -207,6 +272,9 @@ class Player:
         responds to context and trows ManagedCommandError if not possible"""
         if hasattr(self, "discord"):
             return self.discord
+
+        if discord_id == self.context.bot.application_id:
+            await self.context.exit("You cannot target the bot")
 
         member: Optional[Union[discord.Member,
                                discord.User]] = self.context.bot.get_user(int(discord_id))
@@ -246,7 +314,7 @@ class Player:
             elif db_id is not None:
                 await self.context.exit(f"Database entry not found: {db_id}")
             else:
-                raise ValueError  # User.get_user should have already done this, but better safe than sorry
+                raise ValueError  # DBUser.get_user should have already done this, but better safe than sorry
 
         return db
 

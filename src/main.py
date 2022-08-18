@@ -20,7 +20,7 @@ class BeezlebubBot(commands.Bot):
         extensions: List[str],
         datastore: str,
         date_format: str,
-        derlict_time: timedelta,
+        derelict_time: timedelta,
         user_delete_time: timedelta,
         **kwargs,
     ):
@@ -28,7 +28,7 @@ class BeezlebubBot(commands.Bot):
         self.init_extensions = extensions
         self.datastore = datastore
         self.date_format = date_format
-        self.derlict_time = derlict_time
+        self.derelict_time = derelict_time
         self.user_delete_time = user_delete_time
 
         self.setup_hook()
@@ -68,8 +68,8 @@ def logger_setup():
 
 
 def main():
-    from dotenv import load_dotenv
-    load_dotenv()
+    # from dotenv import load_dotenv
+    # load_dotenv()
 
     logger_setup()
 
@@ -83,7 +83,7 @@ def main():
     datastore = os.getenv("DATATOKEN")
 
     date_format = "%d %b %Y"
-    derlict_time = timedelta(days=10)
+    derelict_time = timedelta(days=10)
     user_delete_time = timedelta(days=93)
 
     bot = BeezlebubBot(
@@ -92,7 +92,7 @@ def main():
         intents=intents,
         datastore=datastore,
         date_format=date_format,
-        derlict_time=derlict_time,
+        derelict_time=derelict_time,
         user_delete_time=user_delete_time
     )
     bot.run(os.getenv("BOTTOKEN"))

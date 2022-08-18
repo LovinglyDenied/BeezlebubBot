@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Protocol, Union
 
 import discord
+from beartype import beartype
 
 from .managed_error import ManagedCommandError
 
@@ -30,15 +31,16 @@ class ModelACTX(ModelContext):
     """A ModelContext from a discord ApplicationContext"""
     __slots__ = ("ctx")
 
+    @beartype
     def __init__(self, ctx: discord.ApplicationContext):
-        if not isinstance(ctx, discord.ApplicationContext):
-            raise InvalidContext
         self.ctx = ctx
 
     @property
+    @beartype
     def bot(self) -> discord.ext.commands.Bot:
         return self.ctx.bot
 
+    @beartype
     async def exit(self, message: str) -> None:
         await self.ctx.respond(message, ephemeral=True)
         raise ManagedCommandError
@@ -48,19 +50,17 @@ class ModelCCTX(ModelContext):
     """A ModelContext from a discord TextChannel & Bot"""
     __slots__ = ("channel", "_bot")
 
-    def __init__(self, *, channel: discord.TextChannel, bot: discord.ext.commands.Bot):
-        if not isinstance(channel, discord.TextChannel):
-            raise InvalidContext
-        if not isinstance(bot, discord.ext.commands.Bot):
-            raise InvalidContext
-
+    @beartype
+    def __init__(self, *, channel: Union[discord.TextChannel,discord.DMChannel], bot: discord.ext.commands.Bot):
         self.channel = channel
         self._bot = bot
 
     @property
+    @beartype
     def bot(self) -> discord.ext.commands.Bot:
         return self._bot
 
+    @beartype
     async def exit(self, message: str) -> None:
         await self.channel.send(message)
         raise ManagedCommandError

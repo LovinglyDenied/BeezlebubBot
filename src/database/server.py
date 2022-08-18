@@ -74,12 +74,13 @@ class ServerSettings(MappedClass):
         ])
 
     @classmethod
-    def enter_server(cls,
-                     server_id: int,
-                     *,
-                     channel_id: int = 0,
-                     welcome_message: str = "Welcome to the server!"
-                     ):
+    def enter_server(
+        cls,
+        server_id: int,
+        *,
+        channel_id: int = 0,
+        welcome_message: str = "Welcome to the server!"
+    ):
         if not cls.query.find({"server_id": server_id}).count():
             cls(
                 server_id=server_id,
@@ -98,13 +99,14 @@ class ServerSettings(MappedClass):
         })
 
     @classmethod
-    def change_setting(cls,
-                       server_id: int,
-                       setting: str,
-                       value: Any,
-                       *,
-                       group: Optional[str] = None
-                       ):
+    def change_setting(
+        cls,
+        server_id: int,
+        setting: str,
+        value: Any,
+        *,
+        group: Optional[str] = None
+    ):
         data = cls.query.find({"server_id": server_id})
         if not data.count():
             cls.enter_server(server_id)

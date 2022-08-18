@@ -55,7 +55,7 @@ class UserKinks(MappedClass):
 
 class DBUser(MappedClass):
     class __mongometa__:
-        name = "user"
+        name = "users"
         session = DBManager.add_session(name)
         unique_indexes = [('discord_id',)]
 
@@ -69,12 +69,12 @@ class DBUser(MappedClass):
     chaster_name = FieldProperty(s.String)
 
     limits_message = FieldProperty(s.String(
-        if_missing="This user has not jet set their limits message"))
+        if_missing="This user has not yet set their limits message"))
     limit_tags = ForeignIdProperty("TaskTags", uselist=True)
     #limit_tasks = ForeignIdProperty("Tasks", uselist = True)
 
     kinks_message = FieldProperty(s.String(
-        if_missing="This user has not jet set their kinks message"))
+        if_missing="This user has not yet set their kinks message"))
     kinks = ForeignIdProperty("UserKinks", uselist=True)
     main_kinks = FieldProperty(s.Array(s.String))
 
@@ -86,9 +86,8 @@ class DBUser(MappedClass):
         "swear": s.Bool(if_missing=False)
     }))
 
-    _controls = ForeignIdProperty("DBUser", uselist=True)
-    controls = RelationProperty("DBUser", via=("_controls", True))
-    controlled_by = RelationProperty("DBUser", via=("_controls", False))
+
+    controller = ForeignIdProperty("DBUser", uselist=False)
     allow_requests = FieldProperty(s.Bool(if_missing=True))
     trusts = FieldProperty(s.Bool(if_missing=False))
 
@@ -166,11 +165,18 @@ class DBUser(MappedClass):
                 last_active=datetime.utcnow(),
                 join_date=datetime.utcnow()
             )
-            user["controls"] = [user]
+            user["controller"] = user._id
 
         if ref_count is not None:
             user.ref_counter = ref_count
 
+        DBManager.sessions[cls.name].flush()
+    
+    @classmethod
+    def set_controller(cls, owned_id: str, *, new_owner_id: str, trusts: bool = False):
+        user = cls.get_user(db_id=owned_id)
+        user["controller"] = new_owner_id
+        user["trusts"] = trusts
         DBManager.sessions[cls.name].flush()
 
     @classmethod
@@ -187,7 +193,7 @@ class DBUser(MappedClass):
                 last_active=datetime.min,
                 join_date=datetime.utcnow()
             )
-            user["controls"] = [user]
+            user["controller"] = user._id
         DBManager.sessions[cls.name].flush()
 
     @classmethod
@@ -209,7 +215,7 @@ class DBUser(MappedClass):
             last_active=datetime.utcnow(),
             join_date=datetime.utcnow()
         )
-        user["controls"] = [user]
+        user["controller"] = user._id
         DBManager.sessions[cls.name].flush()
 
     @classmethod

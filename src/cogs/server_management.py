@@ -8,6 +8,7 @@ from discord.commands import SlashCommandGroup, Option
 
 from database.server import ServerSettings
 from models import MainTextChannel, ModelACTX, ModelCCTX, create_main_text_channel
+from resources import create_welcome_embed, create_welcome_view
 from .base import BaseCog
 
 
@@ -118,59 +119,6 @@ class ServerManager(BaseCog):
             ephemeral=True
         )
 
-    @staticmethod
-    def create_welcome_embed(
-            title: str,
-            member_join: str,
-            member_avatar: str,
-            member_name: str
-    ) -> discord.Embed:
-
-        embed = discord.Embed(
-            title=title,
-            description=member_name,
-            colour=0xA343CB
-        )
-        embed.add_field(
-            name="**Joined Discord: **",
-            value=member_join,
-            inline=False
-        )
-        embed.set_thumbnail(url=member_avatar)
-
-        return embed
-
-    # This has to be done with a function instead of by subclassing View
-    # The @button declarator does not support links
-    @staticmethod
-    def create_welcome_view(
-            rules_link: str,
-            rules_message: str,
-            roles_link: str,
-            roles_message: str,
-            guide_link: str,
-            guide_message: str,
-    ) -> discord.ui.View:
-
-        rules_button: discord.ui.Button = discord.ui.Button(
-            label=rules_message,
-            style=discord.ButtonStyle.link,
-            url=rules_link
-        )
-
-        roles_button: discord.ui.Button = discord.ui.Button(
-            label=roles_message,
-            style=discord.ButtonStyle.link,
-            url=roles_link
-        )
-        guide_button: discord.ui.Button = discord.ui.Button(
-            label=guide_message,
-            style=discord.ButtonStyle.link,
-            url=guide_link
-        )
-
-        return discord.ui.View(rules_button, roles_button, guide_button)
-
     async def run_welcome_message(self, settings: ServerSettings, member: discord.Member):
         init_context = ModelCCTX(
             channel=member.guild.system_channel, bot=self.bot)
@@ -194,13 +142,13 @@ class ServerManager(BaseCog):
             discord_id=settings.welcome.guide_button_channel,
             context=main_context)
 
-        embed: discord.Embed = self.create_welcome_embed(
+        embed: discord.Embed = create_welcome_embed(
             title=settings.welcome.header_text,
             member_join=member.created_at.strftime(self.bot.date_format),
             member_avatar=str(member.display_avatar),
             member_name=str(member.mention)
         )
-        view: discord.ui.View = self.create_welcome_view(
+        view: discord.ui.View = create_welcome_view(
             rules_link=rules_channel.discord.jump_url,
             rules_message=settings.welcome.rules_button_text,
             roles_link=roles_channel.discord.jump_url,
