@@ -154,6 +154,10 @@ class DBUser(MappedClass):
         DBManager.sessions[cls.name].flush()
 
     @classmethod
+    def get_owned(cls, self_id: str) -> List[DBUser]:
+        return cls.query.find({"controller": self_id}).all()
+
+    @classmethod
     def update(cls, discord_id: int, *, ref_count: Optional[int] = None):
         data = cls.query.find({"discord_id": discord_id})
         if data.count():
@@ -171,7 +175,7 @@ class DBUser(MappedClass):
             user.ref_counter = ref_count
 
         DBManager.sessions[cls.name].flush()
-    
+
     @classmethod
     def set_controller(cls, owned_id: str, *, new_owner_id: str, trusts: bool = False):
         user = cls.get_user(db_id=owned_id)

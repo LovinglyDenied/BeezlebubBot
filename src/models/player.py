@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Coroutine
 
 import discord
 
@@ -31,27 +32,25 @@ class Player:
             raise InvalidScope
         return self.discord.dm_channel or await self.discord.create_dm()
 
-    async def try_to_send_dm(
-        self,
-        content: Optional[str] = None,
-        *,
-        embed: Optional[discord.ui.Embed] = None,
-        view: Optional[discord.ui.View] = None
-    ):
-        """Tries to send a DM to the user.
+    async def notify(self, message: str):
+        """Tries to send a Notification DM to the user.
         Fails quietly if not able to."""
+        from resources import create_notification_embed
         channel = await self.get_dm()
+        embed = create_notification_embed(message)
         try:
-            await channel.send(content=content, embed=embed, view=view)
+            await channel.send(embed=embed)
         except discord.Forbidden:
             pass
 
     async def update_owner(self, **kwargs) -> Optional[Player]:
         """Updates the owner if derelict.
-        returns the owner after the operation"""
+        returns the owner after the operation, or none if the player doesn't have an owner after it"""
         owner = await self.get_owner(**kwargs)
-        if owner.derelict and self.has_owner:
-            await owner.try_to_send_dm(
+        if not self.has_owner:
+            return None
+        elif owner.derelict:
+            await owner.notify(
                 f"{self.discord.mention} is no longer owned by you because you went derelict")
             self._set_owner(self, trusts=False)
             return None
@@ -77,23 +76,20 @@ class Player:
             raise InvalidScope
         await self.update_owner()
 
-        print(f"setting owner of {self.discord} to {player.discord}")
-
         if self == player:
-            print("Cannot set owner to self")
-            await self.context.exit("Cannot set owner to self")
+            await self.context.exit(
+                "Cannot set owner to self")
         if self.is_owned_by(player):
-            print("Cannot set new owner, already owned by this player")
             await self.context.exit(
                 "Cannot set new owner, already owned by this player")
         if self.has_owner:
-            print("Cannot set owner, new target already has one.")
-            await self.context.exit("Cannot set owner, new target already has one.")
+            await self.context.exit(
+                "Cannot set owner, new target already has one.")
 
         self._set_owner(player, trusts=trusts)
 
-        await self.try_to_send_dm(f"Your owner is now {player.discord.mention}.")
-        await player.try_to_send_dm(f"You now own {self.discord.mention}.")
+        await self.notify(f"Your owner is now {player.discord.mention}.")
+        await player.notify(f"You now own {self.discord.mention}.")
 
     def _set_owner(self, player: Player, *, trusts: bool):
         if not hasattr(self, "db") or not hasattr(player, "db"):
@@ -130,6 +126,24 @@ class Player:
             return None
         else:
             return owner.discord.mention
+
+    async def get_owned(self) -> Optional[List[Player]]:
+        """Returns a list of all the players owned by this player,
+        or None if there are none
+        raises InvalidScope if not run on instances with initialised db"""
+        if not hasattr(self, "db"):
+            raise InvalidScope
+        controlling: List[DBUser] = DBUser.get_owned(self.db._id)
+
+        coroutines: List[Coroutine] = [Player.from_db_user(
+            controlled, context=self.context)for controlled in controlling]
+        owned_all: List[Player] = await asyncio.gather(*coroutines)
+        owned = [player for player in owned_all if player != self]
+
+        if owned == []:
+            return None
+        else:
+            return owned
 
     @property
     def derelict(self) -> bool:

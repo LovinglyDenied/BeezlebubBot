@@ -1,11 +1,12 @@
 import asyncio
 import logging
+from typing import Optional, List
 
 import discord
 from discord.commands import SlashCommandGroup, Option
 
 from database.user import DBUser
-from models import Player, ModelACTX, ModelCCTX
+from models import Player, ModelACTX, ModelVCTX
 from resources import create_controlling_request_embed, create_controlling_request_view
 from .base import BaseCog
 
@@ -23,19 +24,16 @@ class Controlling(BaseCog):
         target: Player
     ):
         dmchannel = await target.get_dm()
-        # Changing the context of the target, to now send all target-related errors to them.
-        # Creation has already happened, so these errors would come from button presses.
-        target.context = ModelCCTX(channel=dmchannel, bot=self.bot)
-
         embed = create_controlling_request_embed(
             instantiator_name=str(instantiator.discord),
             instantiator_picture=instantiator.discord.display_avatar
         )
         view = create_controlling_request_view(
             instantiator=instantiator,
-            target=target
+            target=target, 
+            bot=self.bot
         )
-        await dmchannel.send(embed=embed, view=view)
+        await dmchannel.send(view=view, embed=embed)
 
     @control.command(
         name="request",
@@ -77,6 +75,30 @@ class Controlling(BaseCog):
             await ctx.respond(f"Cannot send a request: The DM settings of {target.discord.mention} do not allow to send the message.")
 
     @control.command(
+        name="trust",
+        description="Trusts your current owner")
+    async def trust(
+        self,
+        ctx: discord.ApplicationContext
+    ):
+        player: Player = await Player.from_ctx(ctx, get_db=True)
+        owner: Optional[str] = await player.mention_owner()
+
+        if not player.has_owner:
+            await ctx.respond(f"You are currently not owned by anyone", ephemeral=True)
+            return
+        if player.db.trusts == True:
+            await ctx.respond(f"You had already trusted your owner!", ephemeral=True)
+            return
+
+        DBUser.change_setting(
+            db_id=player.db._id,
+            setting="trusts",
+            value=True
+        )
+        await ctx.respond(f"You have now trusted your owner, {owner}", ephemeral=True)
+
+    @control.command(
         name="free",
         description="Free the target player from your controll.")
     async def free(
@@ -101,10 +123,9 @@ class Controlling(BaseCog):
             await ctx.respond(f"You do not control {target.discord.mention}.", ephemeral=True)
             return
         target._set_owner(target, trusts=False)
-        await target.try_to_send_dm(f"You are no longer owned by {instantiator.discord.mention}. They freed you")
+        await target.notify(f"You are no longer owned by {instantiator.discord.mention}. They freed you")
 
         await ctx.respond(f"You freed {target.discord.mention}", ephemeral=True)
-
 
     @control.command(
         name="update",
@@ -114,11 +135,54 @@ class Controlling(BaseCog):
         ctx: discord.ApplicationContext
     ):
         player: Player = await Player.from_ctx(ctx, get_db=True)
-        owner = await player.update_owner(get_discord=True)
-        if not player.has_owner:
+        owner: Optional[Player] = await player.update_owner(get_discord=True)
+        if owner is None:
             await ctx.respond(f"Updated your owner. You currently do not have one.", ephemeral=True)
         else:
             await ctx.respond(f"Updated your owner. Your owner is {owner.discord.mention}", ephemeral=True)
+
+    @control.command(
+        name="owner",
+        description="Shows who owns you.")
+    async def owner(
+        self,
+        ctx: discord.ApplicationContext
+    ):
+        player: Player = await Player.from_ctx(ctx, get_db=True)
+        owner: Player = await player.get_owner(get_discord=True)
+        if owner == player:
+            await ctx.respond(f"You are currently not owned by anyone", ephemeral=True)
+        else:
+            if player.db.trusts:
+                trusts: str = "You have trusted them."
+            else:
+                trusts: str = "You have not trusted them."
+            await ctx.respond(f"You are owned by {owner.discord.mention}, {trusts}", ephemeral=True)
+
+    @control.command(
+        name="owned",
+        description="Show who you own")
+    async def owner(
+        self,
+        ctx: discord.ApplicationContext
+    ):
+        player: Player = await Player.from_ctx(ctx, get_db=True)
+        owned: Optional[List[Player]] = await player.get_owned()
+
+        if owned is None:
+            await ctx.respond(f"You currently do not own anyone", ephemeral=True)
+            return
+
+        owned_names: List[str] = []
+        for controlled in owned:
+            if controlled.db.trusts:
+                owned_names.append(
+                    f"\t- {controlled.discord.mention}.\t They have trusted you.")
+            else:
+                owned_names.append(
+                    f"\t- {controlled.discord.mention}.\t They have not trusted you.")
+        names: str = "\n".join(owned_names)
+        await ctx.respond(f"You currently own the following player(s):\n\n {names}", ephemeral=True)
 
     @control.command(
         name="allow_requests",

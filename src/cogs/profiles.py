@@ -33,7 +33,7 @@ class Profiles(BaseCog):
             get_db=True,
             context=ModelACTX(ctx)
         )
-        owner: str = await player.mention_owner()
+        owner: Optional[str] = await player.mention_owner()
 
         embed: discord.Embed = create_profile_embed(
             discord_name=player.discord.name,

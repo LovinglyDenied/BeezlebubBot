@@ -19,7 +19,7 @@ class ModelContext(Protocol):
 
     @property
     def bot(self) -> discord.ext.commands.Bot:
-        """The main bot object of the context"""
+        """The main bot object of the context, such that any models can access it."""
         raise NotImplementedError
 
     async def exit(self, message: str) -> None:
@@ -51,7 +51,7 @@ class ModelCCTX(ModelContext):
     __slots__ = ("channel", "_bot")
 
     @beartype
-    def __init__(self, *, channel: Union[discord.TextChannel,discord.DMChannel], bot: discord.ext.commands.Bot):
+    def __init__(self, *, channel: Union[discord.TextChannel, discord.DMChannel], bot: discord.ext.commands.Bot):
         self.channel = channel
         self._bot = bot
 
@@ -62,5 +62,29 @@ class ModelCCTX(ModelContext):
 
     @beartype
     async def exit(self, message: str) -> None:
-        await self.channel.send(message)
+        from resources import create_error_embed
+        embed: discord.Embed = create_error_embed(message)
+        await self.channel.send(embed=embed)
+        raise ManagedCommandError
+
+
+class ModelVCTX(ModelContext):
+    """A model context for a view, from a message & bot"""
+    __slots__ = ("message", "_bot")
+
+    @beartype
+    def __init__(self, *, message: discord.Message, bot: discord.ext.commands.Bot):
+        self.message = message
+        self._bot = bot
+
+    @property
+    @beartype
+    def bot(self) -> discord.ext.commands.Bot:
+        return self._bot
+
+    @beartype
+    async def exit(self, message: str) -> None:
+        from resources import create_error_embed
+        embed: discord.Embed = create_error_embed(message)
+        await self.message.reply(embed=embed, delete_after=60)
         raise ManagedCommandError
