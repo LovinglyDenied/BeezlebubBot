@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import Protocol, Union
-
 import discord
 from beartype import beartype
+from beartype.typing import Protocol
 
-from .managed_error import ManagedCommandError
+from utils import MessageChannel
+from .context_errors import ManagedCommandError, UnmanagedCommandError
 
 
 class InvalidContext(Exception):
@@ -25,6 +25,30 @@ class ModelContext(Protocol):
     async def exit(self, message: str) -> None:
         """The method to be called to respond to the context and raise a ManagedCommandError"""
         raise NotImplementedError
+
+
+class ModelNoneCTX(ModelContext):
+    """A model context that only trows an error.
+    This should only be used if the error will be catched elsewhere."""
+    __slots__ = ("_bot")
+
+    @beartype
+    def __init__(self, *, bot: discord.ext.commands.Bot):
+        self._bot = bot
+
+    @property
+    @beartype
+    def bot(self) -> discord.ext.commands.Bot:
+        return self._bot
+
+    @beartype
+    async def exit(self, message: str) -> None:
+        raise UnmanagedCommandError(message)
+
+    @classmethod
+    @beartype
+    def from_other(cls, context: ModelContext):
+        return cls(bot = context.bot)
 
 
 class ModelACTX(ModelContext):
@@ -51,7 +75,7 @@ class ModelCCTX(ModelContext):
     __slots__ = ("channel", "_bot")
 
     @beartype
-    def __init__(self, *, channel: Union[discord.TextChannel, discord.DMChannel], bot: discord.ext.commands.Bot):
+    def __init__(self, *, channel: MessageChannel, bot: discord.ext.commands.Bot):
         self.channel = channel
         self._bot = bot
 

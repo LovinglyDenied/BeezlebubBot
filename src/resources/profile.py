@@ -1,8 +1,9 @@
-from typing import Optional
-
 import discord
+from beartype import beartype
+from beartype.typing import Optional
 
 
+@beartype
 def create_profile_embed(
         *,
         discord_name: str,

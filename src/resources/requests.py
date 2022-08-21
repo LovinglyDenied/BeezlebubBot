@@ -1,11 +1,13 @@
 import discord
 import discord.ui as ui
+from beartype import beartype
 
 from models import Player, ModelVCTX
 from .base import BaseView
 
 
 class ControllingRequestView(BaseView):
+    @beartype
     def __init__(self, *, instantiator: Player, target: Player, bot: discord.ext.commands.Bot):
         super().__init__(timeout=60)
         self.instantiator: Player = instantiator
@@ -63,7 +65,7 @@ class ControllingRequestView(BaseView):
         if not self.accepted:
             embed = create_controlling_request_timed_out_embed(
                 instantiator_name=str(self.instantiator.discord),
-                instantiator_picture=self.instantiator.discord.display_avatar
+                instantiator_picture=str(self.instantiator.discord.display_avatar)
             )
             await self.message.edit(
                 embed=embed,
@@ -71,10 +73,12 @@ class ControllingRequestView(BaseView):
             )
 
 
-def create_controlling_request_view(**kwargs) -> ui.View:
+@beartype
+def create_controlling_request_view(**kwargs) -> BaseView:
     return ControllingRequestView(**kwargs)
 
 
+@beartype
 def create_controlling_request_timed_out_embed(
         *,
         instantiator_name: str,
@@ -104,6 +108,7 @@ def create_controlling_request_timed_out_embed(
     return embed
 
 
+@beartype
 def create_controlling_request_embed(
         *,
         instantiator_name: str,

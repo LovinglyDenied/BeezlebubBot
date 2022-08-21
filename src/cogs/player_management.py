@@ -7,6 +7,7 @@ from discord.commands import SlashCommandGroup
 
 from utils import sched, scheduler_setup
 from database.user import DBUser, UserAlreadyRegisterd, UserNotRegisterd
+from models import Player, create_player, ModelNoneCTX
 from .base import BaseCog
 
 
@@ -36,8 +37,19 @@ class PlayerManager(BaseCog):
             self,
             ctx: discord.ApplicationContext
     ):
+        # This going wrong should not prevent anyone from unregistering.
         try:
-            DBUser.unregister(ctx.user.id)
+            player: Player = await create_player(
+                discord_id=ctx.user.id, 
+                get_db=True, 
+                context=ModelNoneCTX(bot=self.bot)
+            )
+            await player.free_all_owned()
+        except Exception:
+            pass
+
+        try:
+            DBUser.unregister(discord_id=ctx.user.id)
             await ctx.respond(f"unregistered {ctx.user.mention}", ephemeral=True)
         except UserNotRegisterd:
             await ctx.respond(f"Player {ctx.user.mention} was never registered", ephemeral=True)

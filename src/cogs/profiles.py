@@ -6,7 +6,7 @@ from typing import Optional
 import discord
 from discord.commands import slash_command, Option
 
-from models import Player, ModelACTX
+from models import Player, ModelACTX, ModelNoneCTX, UnmanagedCommandError
 from resources import create_profile_embed
 from .base import BaseCog
 
@@ -33,7 +33,11 @@ class Profiles(BaseCog):
             get_db=True,
             context=ModelACTX(ctx)
         )
-        owner: Optional[str] = await player.mention_owner()
+        try:
+            owner: Optional[str] = await player.mention_owner(
+                context=ModelNoneCTX(bot=self.bot))
+        except UnmanagedCommandError:
+            owner = "Owner could not be resolved."
 
         embed: discord.Embed = create_profile_embed(
             discord_name=player.discord.name,

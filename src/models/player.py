@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
-from typing import List, Optional, Union, Coroutine
 
 import discord
+from beartype import beartype
+from beartype.typing import List, Coroutine, Optional
+from bson.objectid import ObjectId
 
 from database.user import DBUser, UserNotRegisterd
-from utils.helpers import mention_to_id, get_player_name
-from .context import ModelContext, ModelACTX
+from utils import mention_to_id, get_player_name, DiscordMember
+from .context_errors import ManagedCommandError, UnmanagedCommandError
+from .context import ModelContext, ModelACTX, ModelNoneCTX
 
 
 class InvalidScope(ValueError):
@@ -20,9 +23,11 @@ class Player:
     """A wrapper class for a BeezelbubBot user. 
     Contains discord, database, and future Chaster methods and commands"""
 
+    @beartype
     def __init__(self, *, context: ModelContext):
         self.context = context
 
+    @beartype
     async def get_dm(self) -> discord.DMChannel:
         """Returns the DM channel of the bot with this user.
         Creates it if it didn't jet excist.
@@ -32,6 +37,7 @@ class Player:
             raise InvalidScope
         return self.discord.dm_channel or await self.discord.create_dm()
 
+    @beartype
     async def notify(self, message: str):
         """Tries to send a Notification DM to the user.
         Fails quietly if not able to."""
@@ -43,33 +49,54 @@ class Player:
         except discord.Forbidden:
             pass
 
-    async def update_owner(self, **kwargs) -> Optional[Player]:
-        """Updates the owner if derelict.
+    async def update_owner(self) -> Optional[Player]:
+        """Updates the owner if derelict or missing.
         returns the owner after the operation, or none if the player doesn't have an owner after it"""
-        owner = await self.get_owner(**kwargs)
+        try:
+            owner = await self.get_owner(
+                get_discord=False,
+                get_chaster=False,
+                context=ModelNoneCTX.from_other(self.context)
+            )
+        except UnmanagedCommandError:
+            self._set_owner(self, trusts=False)
+            return None
+
+        try:
+            await owner._get_discord(discord_id=owner.db.discord_id)
+        except UnmanagedCommandError:
+            pass
+
         if not self.has_owner:
             return None
         elif owner.derelict:
-            await owner.notify(
-                f"{self.discord.mention} is no longer owned by you because you went derelict")
             self._set_owner(self, trusts=False)
+            if hasattr(owner, "discord"):
+                await owner.notify(
+                    f"{self.discord.mention} is no longer owned by you because you went derelict")
             return None
         else:
             return owner
 
-    async def get_owner(self, **kwargs) -> Player:
+    @beartype
+    async def get_owner(self, *, context: Optional[ModelContext] = None, **kwargs) -> Player:
         """retuns a Player instance of the owner of the current player,
         initialised with the regular init kwargs in the present context
         Updates the owner to self if owner was derelict."""
         if not hasattr(self, "db"):
             raise InvalidScope
+
+        if context is None:
+            context = self.context
+
         return await self.__class__._init(
             db_id=self.db.controller,
-            context=self.context,
+            context=context,
             get_db=True,
             **kwargs
         )
 
+    @beartype
     async def set_owner(self, player: Player, *, trusts: bool):
         """Sets the player's owner to the one specified if able to."""
         if not hasattr(self, "discord") or not hasattr(player, "discord"):
@@ -91,12 +118,34 @@ class Player:
         await self.notify(f"Your owner is now {player.discord.mention}.")
         await player.notify(f"You now own {self.discord.mention}.")
 
+    @beartype
+    async def free_all_owned(self):
+        if not hasattr(self, "discord"):
+            raise InvalidScope
+        owned: Optional[List[Player]] = await self.get_owned()
+
+        if owned is None:
+            return
+
+        for owned_player in owned:
+            owned_player._set_owner(owned_player, trusts=False)
+            owned_player.context = ModelNoneCTX.from_other(
+                owned_player.context)
+
+            try:
+                owned_player.discord = await owned_player._get_discord(owned_player.db.discord_id)
+                await owned_player.notify(f"You are no longer owned by {self.discord.mention}.")
+            except ManagedCommandError:
+                pass
+
+    @beartype
     def _set_owner(self, player: Player, *, trusts: bool):
         if not hasattr(self, "db") or not hasattr(player, "db"):
             raise InvalidScope
         DBUser.set_controller(
             self.db._id, new_owner_id=player.db._id, trusts=trusts)
 
+    @beartype
     def is_owned_by(self, player: Player) -> bool:
         """Whether the player specified by argument is owned by the player the method is called on
         raises InvalidScope if not run on instances with initialised db"""
@@ -104,6 +153,7 @@ class Player:
             raise InvalidScope
         return player.db._id == self.db.controller
 
+    @beartype
     def owns(self, player: Player) -> bool:
         """Whether the player specified by argument owns the player the method is called on
         raises InvalidScope if not run on instances with initialised db"""
@@ -112,21 +162,22 @@ class Player:
         return self.db._id == player.db.controller
 
     @property
+    @beartype
     def has_owner(self) -> bool:
         """Whether the player has an owner
         raises InvalidScope if not run on instances with initialised db"""
-        if not hasattr(self, "db"):
-            raise InvalidScope
         return not self.owns(self)
 
-    async def mention_owner(self) -> Optional[str]:
+    @beartype
+    async def mention_owner(self, context: Optional[ModelContext] = None) -> Optional[str]:
         """Returns mention string for player's owner"""
-        owner = await self.get_owner(get_discord=True)
+        owner = await self.get_owner(get_discord=True, context=context)
         if owner == self:
             return None
         else:
             return owner.discord.mention
 
+    # Cannot be beartyped, "Player" object too nested.
     async def get_owned(self) -> Optional[List[Player]]:
         """Returns a list of all the players owned by this player,
         or None if there are none
@@ -136,7 +187,7 @@ class Player:
         controlling: List[DBUser] = DBUser.get_owned(self.db._id)
 
         coroutines: List[Coroutine] = [Player.from_db_user(
-            controlled, context=self.context)for controlled in controlling]
+            controlled, context=self.context) for controlled in controlling]
         owned_all: List[Player] = await asyncio.gather(*coroutines)
         owned = [player for player in owned_all if player != self]
 
@@ -146,6 +197,7 @@ class Player:
             return owned
 
     @property
+    @beartype
     def derelict(self) -> bool:
         """whether the user is currently derelict
         raises InvalidScope if not run on instance with initialised db"""
@@ -154,6 +206,7 @@ class Player:
         return datetime.utcnow() - self.db.last_active > self.context.bot.derelict_time
 
     @property
+    @beartype
     def deleteable(self) -> bool:
         """whether the user is currently deletable
         raises InvalidScope if not run on instance with initialised db"""
@@ -162,6 +215,7 @@ class Player:
         return datetime.utcnow() - self.db.last_active > self.context.bot.user_delete_time
 
     @property
+    @beartype
     def last_active_str(self) -> Optional[str]:
         """last active date as a string
         raises InvalidScope if not run on instance with initialised db"""
@@ -172,6 +226,7 @@ class Player:
         return self.db.last_active.strftime(self.context.bot.date_format)
 
     @property
+    @beartype
     def join_date_str(self) -> str:
         """join date as a string
         raises InvalidScope if not run on instance with initialised db"""
@@ -179,6 +234,7 @@ class Player:
             raise InvalidScope
         return self.db.join_date.strftime(self.context.bot.date_format)
 
+    @beartype
     async def is_administrator(self) -> bool:
         """Whether the user is a bot administrator
         raises InvalidScope if not run on instance with initialised discord"""
@@ -187,6 +243,7 @@ class Player:
         return await self.context.bot.is_owner(self.discord)
 
     @classmethod
+    @beartype
     async def from_mention(
         cls,
         mention_string: str,
@@ -205,6 +262,7 @@ class Player:
         return await cls._init(discord_id=discord_id, context=context, **kwargs)
 
     @classmethod
+    @beartype
     async def from_db_user(
         cls,
         user: DBUser,
@@ -219,11 +277,12 @@ class Player:
         instance.db: DBUser = user
 
         if get_discord:
-            instance.discord: Union[discord.User, discord.Member] = await instance._get_discord(instance.db.discord_id)
+            instance.discord: DiscordMember = await instance._get_discord(instance.db.discord_id)
 
         return instance
 
     @classmethod
+    @beartype
     async def from_ctx(
         cls,
         ctx: discord.ApplicationContext,
@@ -242,11 +301,12 @@ class Player:
         return instance
 
     @classmethod
+    @beartype
     async def _init(
         cls,
         *,
         discord_id: Optional[int] = None,
-        db_id: Optional[int] = None,
+        db_id: Optional[ObjectId] = None,
         context: ModelContext,
         get_discord: bool = True,
         get_db: bool = False,
@@ -277,11 +337,12 @@ class Player:
             instance.db: DBUser = await instance._get_db(discord_id=discord_id, db_id=db_id, as_user=as_user)
 
         if get_discord:
-            instance.discord: Union[discord.User, discord.Member] = await instance._get_discord(discord_id or instance.db.discord_id)
+            instance.discord: DiscordMember = await instance._get_discord(discord_id or instance.db.discord_id)
 
         return instance
 
-    async def _get_discord(self, discord_id: int) -> Union[discord.User, discord.Member]:
+    @beartype
+    async def _get_discord(self, discord_id: int) -> DiscordMember:
         """gets the discord instance of the player, or returns excisting one.
         responds to context and trows ManagedCommandError if not possible"""
         if hasattr(self, "discord"):
@@ -290,23 +351,23 @@ class Player:
         if discord_id == self.context.bot.application_id:
             await self.context.exit("You cannot target the bot")
 
-        member: Optional[Union[discord.Member,
-                               discord.User]] = self.context.bot.get_user(int(discord_id))
+        member: Optional[DiscordMember] = self.context.bot.get_user(discord_id)
         if member is not None:
             return member
 
         try:
-            member = await self.context.bot.fetch_user(int(discord_id))
+            member = await self.context.bot.fetch_user(discord_id)
             self.fetched = True
             return member
         except discord.NotFound:
             await self.context.exit(f"Could not find a user of the ID {discord_id}")
 
+    @beartype
     async def _get_db(
         self,
         *,
         discord_id: Optional[int] = None,
-        db_id: Optional[int] = None,
+        db_id: Optional[ObjectId] = None,
         as_user: Optional[int] = None
     ) -> DBUser:
         """Gets the db instance of the player, or returns excisting one.
@@ -344,5 +405,6 @@ class Player:
             return NotImplemented
 
 
+@beartype
 async def create_player(*args, **kwargs) -> Player:
     return await Player._init(*args, **kwargs)

@@ -1,5 +1,6 @@
 import discord
 import discord.ui as ui
+from beartype import beartype
 
 from models import ManagedCommandError
 
@@ -23,6 +24,7 @@ class BaseView(ui.View):
         self.stop()
 
 
+@beartype
 def create_error_embed(message: str) -> discord.Embed:
     embed = discord.Embed(
         title=f"**Something went wrong!**",
@@ -32,6 +34,7 @@ def create_error_embed(message: str) -> discord.Embed:
     return embed
 
 
+@beartype
 def create_notification_embed(message: str) -> discord.Embed:
     embed = discord.Embed(
         title=f"**You got a notification.**",

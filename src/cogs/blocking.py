@@ -79,7 +79,7 @@ class Blocking(BaseCog):
         else:
             entries = []
             for name, id in zip(names, player.db.blocked):
-                entries.append(f"{name}, ID: {str(id)}")
+                entries.append(f"{name}.\tID: {id}")
             await ctx.respond("\n".join(entries), ephemeral=True)
 
     def cog_unload(self):

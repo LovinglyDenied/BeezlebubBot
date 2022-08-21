@@ -1,6 +1,8 @@
-from typing import Any, Callable, Optional, Union
-
 import discord
+from beartype import beartype
+from beartype.typing import Callable, Any, Optional, Union
+
+from .types import DiscordMember
 
 
 class classproperty:
@@ -8,13 +10,16 @@ class classproperty:
     Those two cannot be combined by default (or, only in 3.8 - 3.10, with dropped support in 3.11)
     Yes, I could import an external library just for this, but this is only four lines of code..."""
 
+    @beartype
     def __init__(self, fget: Callable):
         self.fget = fget
 
+    @beartype
     def __get__(self, owner_self: Any, owner_cls: type):
         return self.fget(owner_cls)
 
 
+@beartype
 def mention_to_id(mention_string: str) -> int:
     """py-chord returns a mention-string for the discord.User and disord.Channel Option in commands
     This, according to the documentation, should not happen, but alas.
@@ -22,10 +27,10 @@ def mention_to_id(mention_string: str) -> int:
     return int(mention_string.strip("<>@!#"))
 
 
+@beartype
 async def get_player_name(discord_id: int, *, bot: discord.ext.commands.Bot) -> str:
     """Gets the best match for the player name the bot can find"""
-    player: Optional[Union[discord.Member,
-                           discord.User]] = bot.get_user(int(discord_id))
+    player: Optional[DiscordMember] = bot.get_user(int(discord_id))
     if player:
         return str(player)
 

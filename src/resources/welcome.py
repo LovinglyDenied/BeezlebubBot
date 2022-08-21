@@ -1,6 +1,8 @@
 import discord
+from beartype import beartype
 
 
+@beartype
 def create_welcome_embed(
         title: str,
         member_join: str,
@@ -25,6 +27,7 @@ def create_welcome_embed(
 
 # This has to be done with a function instead of by subclassing View
 # The @button declarator does not support links
+@beartype
 def create_welcome_view(
         rules_link: str,
         rules_message: str,

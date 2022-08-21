@@ -3,17 +3,19 @@ import asyncio
 import logging
 import logging.handlers
 
-from typing import List
 from datetime import timedelta
 
 import discord
 from discord.ext import commands
+from beartype import beartype
+from beartype.typing import List
 
 from database import connect
 from cogs import extensions
 
 
 class BeezlebubBot(commands.Bot):
+    @beartype
     def __init__(
         self,
         *args,

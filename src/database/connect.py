@@ -1,11 +1,12 @@
-from typing import Optional
-
 from ming import create_datastore
 from ming.odm import ThreadLocalODMSession
 from ming.datastore import DataStore
 
 from pymongo import MongoClient
 from pymongo.database import Database
+
+from beartype import beartype
+from beartype.typing import Optional
 
 from utils import classproperty
 
@@ -40,6 +41,7 @@ class DBManager:
             cls._instance = super().__new__(cls)
         return cls._instance
 
+    @beartype
     def __init__(self, *, uri: Optional[str] = None):
         cls = self.__class__
         if uri:
@@ -59,6 +61,7 @@ class DBManager:
             raise DatabaseConnectionError
 
     @classproperty
+    @beartype
     def db(cls):
         """The underling Database from PyMongo
         Has the attribures:
@@ -68,6 +71,7 @@ class DBManager:
         return db
 
     @classmethod
+    @beartype
     def add_session(cls, name: str):
         """adds a ming ThreadLocalODMSession to the .sessions dict, and returns it."""
         cls.sessions[name]: ThreadLocalODMSession = ThreadLocalODMSession(

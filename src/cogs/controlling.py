@@ -6,7 +6,7 @@ import discord
 from discord.commands import SlashCommandGroup, Option
 
 from database.user import DBUser
-from models import Player, ModelACTX, ModelVCTX
+from models import Player, ModelACTX
 from resources import create_controlling_request_embed, create_controlling_request_view
 from .base import BaseCog
 
@@ -26,7 +26,7 @@ class Controlling(BaseCog):
         dmchannel = await target.get_dm()
         embed = create_controlling_request_embed(
             instantiator_name=str(instantiator.discord),
-            instantiator_picture=instantiator.discord.display_avatar
+            instantiator_picture=str(instantiator.discord.display_avatar)
         )
         view = create_controlling_request_view(
             instantiator=instantiator,
@@ -135,7 +135,7 @@ class Controlling(BaseCog):
         ctx: discord.ApplicationContext
     ):
         player: Player = await Player.from_ctx(ctx, get_db=True)
-        owner: Optional[Player] = await player.update_owner(get_discord=True)
+        owner: Optional[Player] = await player.update_owner()
         if owner is None:
             await ctx.respond(f"Updated your owner. You currently do not have one.", ephemeral=True)
         else:
@@ -157,7 +157,7 @@ class Controlling(BaseCog):
                 trusts: str = "You have trusted them."
             else:
                 trusts: str = "You have not trusted them."
-            await ctx.respond(f"You are owned by {owner.discord.mention}, {trusts}", ephemeral=True)
+            await ctx.respond(f"You are owned by {owner.discord.mention}, ID: {owner.discord.id}, {trusts}", ephemeral=True)
 
     @control.command(
         name="owned",
@@ -177,10 +177,10 @@ class Controlling(BaseCog):
         for controlled in owned:
             if controlled.db.trusts:
                 owned_names.append(
-                    f"\t- {controlled.discord.mention}.\t They have trusted you.")
+                    f"\t- {controlled.discord.mention}.\tID: {controlled.discord.id}\tThey have trusted you.")
             else:
                 owned_names.append(
-                    f"\t- {controlled.discord.mention}.\t They have not trusted you.")
+                    f"\t- {controlled.discord.mention}.\tID: {controlled.discord.id}\tThey have not trusted you.")
         names: str = "\n".join(owned_names)
         await ctx.respond(f"You currently own the following player(s):\n\n {names}", ephemeral=True)
 

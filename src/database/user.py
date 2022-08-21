@@ -103,7 +103,7 @@ class DBUser(MappedClass):
         cls,
         *,
         discord_id: Optional[int] = None,
-        db_id: Optional[str] = None,
+        db_id: Optional[ObjectId] = None,
         as_user: Optional[int] = None
     ) -> DBUser:
         """Returns the document of the asociated user.
@@ -129,7 +129,7 @@ class DBUser(MappedClass):
             setting: str,
             value: Any,
             discord_id: Optional[int] = None,
-            db_id: Optional[str] = None,
+            db_id: Optional[ObjectId] = None,
             *,
             group: Optional[str] = None
     ):
@@ -154,8 +154,8 @@ class DBUser(MappedClass):
         DBManager.sessions[cls.name].flush()
 
     @classmethod
-    def get_owned(cls, self_id: str) -> List[DBUser]:
-        return cls.query.find({"controller": self_id}).all()
+    def get_owned(cls, db_id: ObjectId) -> List[DBUser]:
+        return cls.query.find({"controller": db_id}).all()
 
     @classmethod
     def update(cls, discord_id: int, *, ref_count: Optional[int] = None):
@@ -207,7 +207,7 @@ class DBUser(MappedClass):
             user = data.first()
             user.ref_counter -= 1
             if (user.ref_counter <= 0) and (datetime.utcnow() - user.last_active > delete_time):
-                user.delete()
+                DBUser.unregister(db_id=user._id)
             DBManager.sessions[cls.name].flush()
 
     @classmethod
@@ -223,8 +223,19 @@ class DBUser(MappedClass):
         DBManager.sessions[cls.name].flush()
 
     @classmethod
-    def unregister(cls, discord_id: int):
-        user = cls.get_user(discord_id=discord_id)
+    def unregister(
+        cls,
+        *, 
+        discord_id: Optional[int] = None, 
+        db_id: Optional[ObjectId] = None,
+    ):
+        user: DBUser = cls.get_user(discord_id=discord_id, db_id=db_id)
+
+        owned: List[DBUser] = cls.get_owned(db_id=user._id)
+        actually_owned = [owned_user for owned_user in owned if owned_user._id != user._id]
+        for owned_user in actually_owned:
+            DBUser.set_controller(owned_user.db._id, new_owner_id=owned_user.db._id)
+
         user.delete()
         DBManager.sessions[cls.name].flush()
 
@@ -234,6 +245,11 @@ class DBUser(MappedClass):
         for user in users:
             user.ref_counter = user_ids.count(user.discord_id)
             if (user.ref_counter <= 0) and (datetime.utcnow() - user.last_active > delete_time):
+                # Unregister without the DB flush
+                owned: List[DBUser] = cls.get_owned(db_id=user._id)
+                actually_owned = [owned_user for owned_user in owned if owned_user._id != user._id]
+                for owned_user in actually_owned:
+                    cls.set_controller(owned_user.db._id, new_owner_id=owned_user.db._id)
                 user.delete()
         DBManager.sessions[cls.name].flush()
 
