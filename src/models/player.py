@@ -49,6 +49,7 @@ class Player:
         except discord.Forbidden:
             pass
 
+    # Cannot be beartyped, "Player" object nested.
     async def update_owner(self) -> Optional[Player]:
         """Updates the owner if derelict or missing.
         returns the owner after the operation, or none if the player doesn't have an owner after it"""
@@ -117,6 +118,8 @@ class Player:
 
         await self.notify(f"Your owner is now {player.discord.mention}.")
         await player.notify(f"You now own {self.discord.mention}.")
+        if trusts:
+            await player.notify(f"{self.discord.mention} now trusts you!")
 
     @beartype
     async def free_all_owned(self):
@@ -177,7 +180,7 @@ class Player:
         else:
             return owner.discord.mention
 
-    # Cannot be beartyped, "Player" object too nested.
+    # Cannot be beartyped, "Player" object nested.
     async def get_owned(self) -> Optional[List[Player]]:
         """Returns a list of all the players owned by this player,
         or None if there are none

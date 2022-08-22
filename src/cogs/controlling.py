@@ -82,7 +82,6 @@ class Controlling(BaseCog):
         ctx: discord.ApplicationContext
     ):
         player: Player = await Player.from_ctx(ctx, get_db=True)
-        owner: Optional[str] = await player.mention_owner()
 
         if not player.has_owner:
             await ctx.respond(f"You are currently not owned by anyone", ephemeral=True)
@@ -91,12 +90,15 @@ class Controlling(BaseCog):
             await ctx.respond(f"You had already trusted your owner!", ephemeral=True)
             return
 
+        owner: Optional[Player] = await player.get_owner(get_discord=True)
+
         DBUser.change_setting(
             db_id=player.db._id,
             setting="trusts",
             value=True
         )
-        await ctx.respond(f"You have now trusted your owner, {owner}", ephemeral=True)
+        await owner.notify(f"{player.discord.mention} now trusts you!")
+        await ctx.respond(f"You have now trusted your owner, {owner.discord.mention}", ephemeral=True)
 
     @control.command(
         name="free",

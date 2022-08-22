@@ -37,13 +37,18 @@ class PlayerManager(BaseCog):
             self,
             ctx: discord.ApplicationContext
     ):
-        # This going wrong should not prevent anyone from unregistering.
+        # The checks needed to make sure the unregisteration goes gracefully.
+        # Thease checks going wrong means the user had a valid reason to want to unregister 
+        # (As this going wrong means some DB entries are unrecoverably messed up.)
         try:
             player: Player = await create_player(
                 discord_id=ctx.user.id, 
                 get_db=True, 
                 context=ModelNoneCTX(bot=self.bot)
             )
+            if player.db.special_statuses.cannot_unregister:
+                await ctx.respond(f"You are not allowed to unregister!", ephemeral=True)
+                return
             await player.free_all_owned()
         except Exception:
             pass

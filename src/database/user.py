@@ -79,11 +79,12 @@ class DBUser(MappedClass):
     main_kinks = FieldProperty(s.Array(s.String))
 
     special_statuses = FieldProperty(s.Object({
-        "denied": s.Bool(if_missing=False),
-        "locked": s.Bool(if_missing=False),
-        "censor": s.Bool(if_missing=False),
-        "scream": s.Bool(if_missing=False),
-        "swear": s.Bool(if_missing=False)
+        "is_denied": s.Bool(if_missing=False),
+        "is_locked": s.Bool(if_missing=False),
+        "is_censored": s.Bool(if_missing=False),
+        "cannot_scream": s.Bool(if_missing=False),
+        "cannot_swear": s.Bool(if_missing=False),
+        "cannot_unregister": s.Bool(if_missing=False)
     }))
 
 
@@ -207,7 +208,7 @@ class DBUser(MappedClass):
             user = data.first()
             user.ref_counter -= 1
             if (user.ref_counter <= 0) and (datetime.utcnow() - user.last_active > delete_time):
-                DBUser.unregister(db_id=user._id)
+                cls.unregister(db_id=user._id)
             DBManager.sessions[cls.name].flush()
 
     @classmethod
@@ -234,7 +235,7 @@ class DBUser(MappedClass):
         owned: List[DBUser] = cls.get_owned(db_id=user._id)
         actually_owned = [owned_user for owned_user in owned if owned_user._id != user._id]
         for owned_user in actually_owned:
-            DBUser.set_controller(owned_user.db._id, new_owner_id=owned_user.db._id)
+            cls.set_controller(owned_user._id, new_owner_id=owned_user._id)
 
         user.delete()
         DBManager.sessions[cls.name].flush()
@@ -249,7 +250,7 @@ class DBUser(MappedClass):
                 owned: List[DBUser] = cls.get_owned(db_id=user._id)
                 actually_owned = [owned_user for owned_user in owned if owned_user._id != user._id]
                 for owned_user in actually_owned:
-                    cls.set_controller(owned_user.db._id, new_owner_id=owned_user.db._id)
+                    cls.set_controller(owned_user._id, new_owner_id=owned_user._id)
                 user.delete()
         DBManager.sessions[cls.name].flush()
 
