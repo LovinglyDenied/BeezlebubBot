@@ -87,7 +87,6 @@ class DBUser(MappedClass):
         "cannot_unregister": s.Bool(if_missing=False)
     }))
 
-
     controller = ForeignIdProperty("DBUser", uselist=False)
     allow_requests = FieldProperty(s.Bool(if_missing=True))
     trusts = FieldProperty(s.Bool(if_missing=False))
@@ -226,14 +225,15 @@ class DBUser(MappedClass):
     @classmethod
     def unregister(
         cls,
-        *, 
-        discord_id: Optional[int] = None, 
+        *,
+        discord_id: Optional[int] = None,
         db_id: Optional[ObjectId] = None,
     ):
         user: DBUser = cls.get_user(discord_id=discord_id, db_id=db_id)
 
         owned: List[DBUser] = cls.get_owned(db_id=user._id)
-        actually_owned = [owned_user for owned_user in owned if owned_user._id != user._id]
+        actually_owned = [
+            owned_user for owned_user in owned if owned_user._id != user._id]
         for owned_user in actually_owned:
             cls.set_controller(owned_user._id, new_owner_id=owned_user._id)
 
@@ -248,9 +248,11 @@ class DBUser(MappedClass):
             if (user.ref_counter <= 0) and (datetime.utcnow() - user.last_active > delete_time):
                 # Unregister without the DB flush
                 owned: List[DBUser] = cls.get_owned(db_id=user._id)
-                actually_owned = [owned_user for owned_user in owned if owned_user._id != user._id]
+                actually_owned = [
+                    owned_user for owned_user in owned if owned_user._id != user._id]
                 for owned_user in actually_owned:
-                    cls.set_controller(owned_user._id, new_owner_id=owned_user._id)
+                    cls.set_controller(
+                        owned_user._id, new_owner_id=owned_user._id)
                 user.delete()
         DBManager.sessions[cls.name].flush()
 

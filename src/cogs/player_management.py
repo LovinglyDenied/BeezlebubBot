@@ -38,12 +38,12 @@ class PlayerManager(BaseCog):
             ctx: discord.ApplicationContext
     ):
         # The checks needed to make sure the unregisteration goes gracefully.
-        # Thease checks going wrong means the user had a valid reason to want to unregister 
+        # These checks going wrong means the user had a valid reason to want to unregister
         # (As this going wrong means some DB entries are unrecoverably messed up.)
         try:
             player: Player = await create_player(
-                discord_id=ctx.user.id, 
-                get_db=True, 
+                discord_id=ctx.user.id,
+                get_db=True,
                 context=ModelNoneCTX(bot=self.bot)
             )
             if player.db.special_statuses.cannot_unregister:

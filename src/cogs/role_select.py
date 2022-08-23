@@ -55,7 +55,7 @@ class ReactionRoles(BaseCog):
         except discord.Forbidden:
             from resources import create_error_embed
             embed: discord.Embed = create_error_embed(
-                    """**Could not add specified role, no permission.**
+                """**Could not add specified role, no permission.**
                     The BeezlebubBot role has to be higher than the role you want the bot to add.""")
             try:
                 await channel.send(embed=embed)

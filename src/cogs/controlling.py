@@ -30,7 +30,7 @@ class Controlling(BaseCog):
         )
         view = create_controlling_request_view(
             instantiator=instantiator,
-            target=target, 
+            target=target,
             bot=self.bot
         )
         await dmchannel.send(view=view, embed=embed)

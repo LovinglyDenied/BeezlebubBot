@@ -48,7 +48,7 @@ class ModelNoneCTX(ModelContext):
     @classmethod
     @beartype
     def from_other(cls, context: ModelContext):
-        return cls(bot = context.bot)
+        return cls(bot=context.bot)
 
 
 class ModelACTX(ModelContext):
